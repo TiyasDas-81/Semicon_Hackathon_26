@@ -24,3 +24,14 @@ experiments/*.png
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Sensitive files
+.env
+.env.*
+kaggle.json
+
+# Datasets (downloaded separately)
+datasets/
+
+# Antigravity / Gemini
+.agents/

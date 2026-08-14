@@ -457,9 +457,9 @@
                 <div class="control-group">
                     <label for="modelSelect">Restoration Model</label>
                     <select id="modelSelect" class="select-input">
-                        <option value="transformer" selected>SwinIR-Light (Transformer)</option>
-                        <option value="cnn">EDSR-Light (CNN Baseline)</option>
-                        <option value="bicubic">Bicubic Interpolation (Baseline)</option>
+                        <option value="transformer" selected>SwinIR-Light Transformer (Deep Learning Restoration)</option>
+                        <option value="cnn">EDSR-Light CNN (Deep Learning Restoration)</option>
+                        <option value="bicubic">Bicubic Interpolation (Classical Baseline)</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -478,26 +478,40 @@
             </div>
 
             <div class="panel-section">
-                <div class="section-title">Data Acquisition</div>
+                <div class="section-title">Data Ingestion (File Ingest)</div>
                 <div class="control-group">
-                    <label>Upload Degraded Image</label>
+                    <label>Upload Custom SEM Image</label>
                     <input type="file" id="imageInput" class="file-input" accept="image/*">
                 </div>
-                <button id="restoreBtn" class="btn">Execute Restoration</button>
             </div>
 
             <div class="panel-section">
-                <div class="section-title">Test Sample Loader</div>
+                <div class="section-title">Integrated Public Datasets Ingest</div>
                 <div class="control-group">
-                    <label>Preset Defect & Pattern Scenarios</label>
-                    <div class="sample-grid">
-                        <div class="sample-item" onclick="loadPreset('grating_0000_lr.png')">Gratings (LER)</div>
-                        <div class="sample-item" onclick="loadPreset('vias_0000_lr.png')">Via Contacts</div>
-                        <div class="sample-item" onclick="loadPreset('logic_0000_lr.png')">Logic Layer</div>
-                        <div class="sample-item" onclick="loadPreset('grating_0001_lr.png')">Line Breaks</div>
-                        <div class="sample-item" onclick="loadPreset('vias_0001_lr.png')">Missing Vias</div>
-                        <div class="sample-item" onclick="loadPreset('logic_0001_lr.png')">Logic Particles</div>
-                    </div>
+                    <label for="datasetSelect">Select Dataset</label>
+                    <select id="datasetSelect" class="select-input">
+                        <option value="">-- Ingest Custom Upload --</option>
+                    </select>
+                </div>
+                <div class="control-group" id="sampleGroup" style="display: none;">
+                    <label for="sampleSelect">Select Sample Image</label>
+                    <select id="sampleSelect" class="select-input">
+                        <option value="">-- Select Sample Image --</option>
+                    </select>
+                </div>
+                <div id="sampleMeta" style="display: none; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-bottom: 12px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); line-height: 1.4;">
+                    <!-- Metadata will be inserted here -->
+                </div>
+                <button id="restoreBtn" class="btn">Execute Ingest Restoration</button>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">Quick Demo Samples (One-Click Ingest)</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="loadDemoSample('carinthia')" style="font-size: 11px; padding: 6px;">Carinthia Example</button>
+                    <button class="btn btn-secondary" onclick="loadDemoSample('miic')" style="font-size: 11px; padding: 6px;">MIIC IC Example</button>
+                    <button class="btn btn-secondary" onclick="loadDemoSample('nist_mod')" style="font-size: 11px; padding: 6px;">NIST Mod Noise</button>
+                    <button class="btn btn-secondary" onclick="loadDemoSample('nist_high')" style="font-size: 11px; padding: 6px;">NIST High Noise</button>
                 </div>
             </div>
 
@@ -631,6 +645,13 @@
         const restoreBtn = document.getElementById("restoreBtn");
         const imageInput = document.getElementById("imageInput");
         const modelSelect = document.getElementById("modelSelect");
+        const modeSelect = document.getElementById("modeSelect");
+        
+        // Dataset UI references
+        const datasetSelect = document.getElementById("datasetSelect");
+        const sampleSelect = document.getElementById("sampleSelect");
+        const sampleGroup = document.getElementById("sampleGroup");
+        const sampleMeta = document.getElementById("sampleMeta");
         
         // Metrics
         const psnrMetric = document.getElementById("psnrMetric");
@@ -647,6 +668,25 @@
         const ctxInput = canvasInput.getContext("2d");
         const ctxOutput = canvasOutput.getContext("2d");
 
+        // Fetch and load datasets
+        async function loadDatasets() {
+            try {
+                const res = await fetch("/api/datasets");
+                const data = await res.json();
+                
+                datasetSelect.innerHTML = '<option value="">-- Ingest Custom Upload --</option>';
+                data.datasets.forEach(ds => {
+                    const opt = document.createElement("option");
+                    opt.value = ds.id;
+                    opt.textContent = ds.name + (ds.available ? "" : " (Dataset not downloaded)");
+                    opt.disabled = !ds.available;
+                    datasetSelect.appendChild(opt);
+                });
+            } catch (e) {
+                console.error("Failed to load datasets", e);
+            }
+        }
+
         // Initialization
         window.addEventListener("load", async () => {
             // Check health
@@ -657,6 +697,9 @@
                     gpuMetric.textContent = data.gpu_available ? "CUDA (GPU)" : "CPU ONLY";
                     gpuMetric.style.color = data.gpu_available ? "var(--color-primary)" : "var(--color-warning)";
                 }
+                
+                // Load dataset options on startup
+                await loadDatasets();
             } catch (e) {
                 console.error("API connection failed", e);
                 systemStatus.textContent = "SYS_STATUS: OFFLINE";
@@ -666,10 +709,107 @@
             }
         });
 
-        // Handle file selection
+        // Handle dataset selection change
+        datasetSelect.addEventListener("change", async () => {
+            const dsId = datasetSelect.value;
+            sampleSelect.innerHTML = '<option value="">-- Select Sample Image --</option>';
+            sampleMeta.style.display = "none";
+            sampleMeta.innerHTML = "";
+            
+            if (!dsId) {
+                sampleGroup.style.display = "none";
+                return;
+            }
+            
+            // Clear custom upload input when using dataset sample
+            imageInput.value = "";
+            loadedOriginalBase64 = "";
+            inputImg.src = "";
+            inputImg.style.display = "none";
+            inputPlaceholder.style.display = "block";
+            inputPlaceholder.textContent = "LOADING SAMPLES...";
+            
+            try {
+                const res = await fetch(`/api/datasets/${dsId}/samples`);
+                if (!res.ok) {
+                    const errData = await res.json();
+                    alert(errData.detail || "Failed to load samples");
+                    inputPlaceholder.textContent = "AWAITING ACQUISITION INGESTION";
+                    sampleGroup.style.display = "none";
+                    return;
+                }
+                const data = await res.json();
+                
+                if (data.samples.length === 0) {
+                    alert("No samples available for this dataset.");
+                    inputPlaceholder.textContent = "AWAITING ACQUISITION INGESTION";
+                    sampleGroup.style.display = "none";
+                    return;
+                }
+                
+                data.samples.forEach(s => {
+                    const opt = document.createElement("option");
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    sampleSelect.appendChild(opt);
+                });
+                sampleGroup.style.display = "block";
+                inputPlaceholder.textContent = "SELECT A SAMPLE FILE FROM DROPDOWN";
+            } catch (e) {
+                console.error(e);
+                alert("Error loading dataset samples");
+                inputPlaceholder.textContent = "AWAITING ACQUISITION INGESTION";
+            }
+        });
+
+        // Handle sample selection change
+        sampleSelect.addEventListener("change", async () => {
+            const dsId = datasetSelect.value;
+            const sId = sampleSelect.value;
+            if (!dsId || !sId) {
+                sampleMeta.style.display = "none";
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/datasets/${dsId}/samples/${encodeURIComponent(sId)}`);
+                const data = await res.json();
+                
+                // Clear viewport to wait for Run button
+                outputImg.src = "";
+                outputImg.style.display = "none";
+                outputPlaceholder.style.display = "block";
+                outputPlaceholder.textContent = "AWAITING INFERENCE RUN";
+                viewTabs.style.display = "none";
+                document.getElementById("riskLegend").style.display = "none";
+                
+                // Set appropriate display text for parameters
+                const nameLabel = data.name;
+                const dimLabel = data.dimensions;
+                const noiseVal = data.noise_level !== "N/A" ? data.noise_level : "Metadata unavailable";
+                const contrastVal = data.contrast_level !== "N/A" ? data.contrast_level : "Metadata unavailable";
+                
+                sampleMeta.innerHTML = `
+                    <strong>Sample Name:</strong> ${nameLabel}<br>
+                    <strong>Geom Dimensions:</strong> ${dimLabel}<br>
+                    <strong>NIST Noise Level:</strong> ${noiseVal}<br>
+                    <strong>NIST Contrast:</strong> ${contrastVal}
+                `;
+                sampleMeta.style.display = "block";
+                
+                inputPlaceholder.textContent = `READY FOR RESTORATION: ${nameLabel}`;
+            } catch (e) {
+                console.error(e);
+            }
+        });
+
+        // Handle file selection (resets dataset selectors)
         imageInput.addEventListener("change", (e) => {
             const file = e.target.files[0];
             if (file) {
+                datasetSelect.value = "";
+                sampleGroup.style.display = "none";
+                sampleMeta.style.display = "none";
                 handleFile(file);
             }
         });
@@ -711,8 +851,11 @@
         // Trigger restoration
         restoreBtn.addEventListener("click", async () => {
             const file = imageInput.files[0];
-            if (!file && !loadedOriginalBase64) {
-                alert("Please upload a degraded SEM image first or select a preset.");
+            const dataset = datasetSelect.value;
+            const sampleId = sampleSelect.value;
+            
+            if (!file && !loadedOriginalBase64 && (!dataset || !sampleId)) {
+                alert("Please upload a degraded SEM image first or select a dataset sample.");
                 return;
             }
             
@@ -721,31 +864,40 @@
             
             // Build form data
             const formData = new FormData();
-            if (file) {
+            formData.append("model", modelSelect.value);
+            formData.append("mode", modeSelect.value);
+            
+            if (dataset && sampleId) {
+                formData.append("dataset", dataset);
+                formData.append("sample_id", sampleId);
+            } else if (file) {
                 formData.append("image", file);
             } else {
-                // If it's a loaded preset, convert base64 back to file
                 const blob = dataURItoBlob(loadedOriginalBase64);
                 formData.append("image", blob, currentFilename);
             }
-            formData.append("model", modelSelect.value);
-            formData.append("mode", document.getElementById("modeSelect").value);
             
             try {
                 const res = await fetch("/api/restore", {
                     method: "POST",
                     body: formData
                 });
-                if (!res.ok) {
-                    throw new Error(`API returned error: ${res.statusText}`);
-                }
+                
                 const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.detail || `API returned error: ${res.statusText}`);
+                }
                 
                 // Set images
                 restoredBase64 = data.restored_b64;
                 confidenceBase64 = data.confidence_b64;
                 deviationBase64 = data.deviation_b64;
                 riskBase64 = data.risk_b64;
+                loadedOriginalBase64 = data.original_b64; // Set original display from backend downsample
+                
+                inputImg.src = loadedOriginalBase64;
+                inputImg.style.display = "block";
+                inputPlaceholder.style.display = "none";
                 
                 outputImg.src = restoredBase64;
                 outputImg.style.display = "block";
@@ -756,6 +908,13 @@
                 // Reset tab state
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
                 document.querySelector(".tab-btn:first-child").classList.add("active");
+                
+                // Load original image object for zoom magnifier
+                originalImgObject = new Image();
+                originalImgObject.src = loadedOriginalBase64;
+                originalImgObject.onload = () => {
+                    inputRes.textContent = `${originalImgObject.naturalWidth}x${originalImgObject.naturalHeight}`;
+                };
                 
                 // Load restored image object for zoom magnifier
                 restoredImgObject = new Image();
@@ -789,7 +948,7 @@
                 
             } catch (error) {
                 console.error(error);
-                alert("Restoration failed: " + error.message);
+                alert(error.message);
             } finally {
                 restoreBtn.disabled = false;
                 restoreBtn.textContent = "Execute Restoration";
@@ -821,45 +980,91 @@
             }
         }
 
-        // Presets loader
-        async function loadPreset(presetName) {
-            // Find matching preset path.
-            // Presets are loaded from static public routes or we fetch from files.
-            // To make presets work, the backend needs to provide them. 
-            // In generate_dataset we write sample images. We can fetch them directly from data/test/lr/ via API.
-            // Since we know the filenames, we can check if backend can find them. We will fetch the preset image bytes.
+        // Quick Demo one-click loader
+        async function loadDemoSample(type) {
             try {
                 restoreBtn.disabled = true;
-                restoreBtn.textContent = "Fetching Preset...";
+                restoreBtn.textContent = "Loading Demo...";
                 
-                // We'll read the preset from a special data fetch route or we simulate.
-                // Let's create an endpoint in FastAPI to serve preset files directly, or we can fetch them.
-                // To keep it simple, we fetch data/test/lr/{filename} from a backend static endpoint, or let the backend do it.
-                // Wait! Since we don't have static mapping for 'data' yet, we can create a fetch route on the backend:
-                // "/api/presets/{filename}". Let's assume we can fetch it.
-                const res = await fetch(`/api/presets/${presetName}`);
-                if (!res.ok) {
-                    throw new Error(`Failed to load preset ${presetName}`);
+                if (datasetSelect.options.length <= 1) {
+                    await loadDatasets();
                 }
-                const blob = await res.blob();
                 
-                // Read and set file
-                currentFilename = presetName;
-                const file = new File([blob], presetName, { type: "image/png" });
+                let dsId = "";
+                let sId = "";
+                let mode = "synthetic";
                 
-                // Create list transfer for input file
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                imageInput.files = dataTransfer.files;
+                if (type === "carinthia") {
+                    dsId = "carinthia";
+                    datasetSelect.value = dsId;
+                    await triggerEvent(datasetSelect, "change");
+                    if (sampleSelect.options.length > 1) {
+                        sId = sampleSelect.options[1].value;
+                    }
+                    mode = "synthetic";
+                } else if (type === "miic") {
+                    dsId = "miic";
+                    datasetSelect.value = dsId;
+                    await triggerEvent(datasetSelect, "change");
+                    if (sampleSelect.options.length > 1) {
+                        sId = sampleSelect.options[1].value;
+                    }
+                    mode = "synthetic";
+                } else if (type === "nist_mod") {
+                    dsId = "nist";
+                    datasetSelect.value = dsId;
+                    await triggerEvent(datasetSelect, "change");
+                    sId = sampleSelect.options[1].value;
+                    // Find moderate noise parameter set1_cex_noise_071 or similar
+                    for (let i = 1; i < sampleSelect.options.length; i++) {
+                        if (sampleSelect.options[i].value.includes("noise_071")) {
+                            sId = sampleSelect.options[i].value;
+                            break;
+                        }
+                    }
+                    mode = "real";
+                } else if (type === "nist_high") {
+                    dsId = "nist";
+                    datasetSelect.value = dsId;
+                    await triggerEvent(datasetSelect, "change");
+                    sId = sampleSelect.options[1].value;
+                    // Find high noise parameter set1_cex_noise_915
+                    for (let i = 1; i < sampleSelect.options.length; i++) {
+                        if (sampleSelect.options[i].value.includes("noise_915")) {
+                            sId = sampleSelect.options[i].value;
+                            break;
+                        }
+                    }
+                    mode = "real";
+                }
                 
-                handleFile(file);
+                if (!dsId || !sId) {
+                    alert("Demo sample files not found on disk. Ensure raw datasets are downloaded.");
+                    return;
+                }
+                
+                datasetSelect.value = dsId;
+                sampleSelect.value = sId;
+                await triggerEvent(sampleSelect, "change");
+                modeSelect.value = mode;
+                
+                // Execute restoration immediately
+                restoreBtn.click();
             } catch (e) {
                 console.error(e);
-                alert("Could not load preset. Ensure the dataset generation pipeline has been executed first!");
+                alert("Failed to load demo sample: " + e.message);
             } finally {
                 restoreBtn.disabled = false;
                 restoreBtn.textContent = "Execute Restoration";
             }
+        }
+        
+        // Helper to trigger events programmatically
+        async function triggerEvent(element, eventName) {
+            const event = new Event(eventName, { bubbles: true });
+            element.dispatchEvent(event);
+            // Allow asynchronous API fetch to complete
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
 
         // Helper to convert dataURI to blob
@@ -873,6 +1078,7 @@
             }
             return new Blob([ab], {type: mimeString});
         }
+
 
         // Real-time hover sync zoom magnifier
         function setupMagnifier(sourceImg, scaleVal) {

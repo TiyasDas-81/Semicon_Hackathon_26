@@ -10,6 +10,8 @@ import cv2
 import numpy as np
 import yaml
 import torch
+import glob
+import re
 from fastapi import FastAPI, UploadFile, Form, File, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
@@ -26,12 +28,16 @@ CONFIG_PATH = "configs/default.yaml"
 def get_restorer(model_type: str):
     """Loads and caches restorer models to optimize inference speeds."""
     if model_type not in RESTORER_CACHE:
-        checkpoint_name = "best_cnn.pth" if model_type == "cnn" else "best_transformer.pth"
-        checkpoint_path = os.path.join("checkpoints", checkpoint_name)
-        
-        # If no checkpoint exists (e.g. before training), restorer falls back to initialized weights
         if model_type == "bicubic":
             checkpoint_path = None
+        else:
+            checkpoint_name = "best_cnn.pth" if model_type == "cnn" else "best_transformer.pth"
+            checkpoint_path = os.path.join("checkpoints", checkpoint_name)
+            if not os.path.exists(checkpoint_path):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Model checkpoint unavailable: {checkpoint_name} is missing. Please run model training first."
+                )
             
         RESTORER_CACHE[model_type] = SemiconImageRestorer(
             model_type=model_type,
@@ -39,6 +45,20 @@ def get_restorer(model_type: str):
             config_path=CONFIG_PATH
         )
     return RESTORER_CACHE[model_type]
+
+def get_safe_path(base_dir: str, relative_path: str) -> str:
+    """Combines base_dir and relative_path, ensuring no directory traversal occurs."""
+    base_dir_abs = os.path.abspath(base_dir)
+    joined_path = os.path.join(base_dir_abs, relative_path)
+    target_path = os.path.abspath(joined_path)
+    
+    # Restrict lookup to target directory
+    if not target_path.startswith(base_dir_abs + os.sep) and target_path != base_dir_abs:
+        raise HTTPException(
+            status_code=400, 
+            detail="Access denied: invalid path traversal or unsafe file request."
+        )
+    return target_path
 
 def array_to_base64_png(arr):
     """Converts a grayscale float array [0,1] to base64 PNG."""
@@ -86,22 +106,211 @@ def list_models():
         ]
     }
 
+@app.get("/api/datasets")
+def list_datasets():
+    """Returns available datasets and their availability state."""
+    return {
+        "datasets": [
+            {
+                "id": "carinthia",
+                "name": "Carinthia SEM Defect Dataset",
+                "available": os.path.exists("data/raw/carinthia/data/images"),
+                "mode": "synthetic"
+            },
+            {
+                "id": "miic",
+                "name": "MIIC IC-SEM Interconnect Dataset",
+                "available": os.path.exists("data/raw/miic"),
+                "mode": "synthetic"
+            },
+            {
+                "id": "nist",
+                "name": "NIST SEM Contrast/Noise Stress Test",
+                "available": os.path.exists("data/raw/nist"),
+                "mode": "real"
+            }
+        ]
+    }
+
+@app.get("/api/datasets/{dataset_id}/samples")
+def list_samples(dataset_id: str):
+    """Returns a list of available samples for the specified dataset."""
+    if dataset_id not in ["carinthia", "miic", "nist"]:
+        raise HTTPException(status_code=400, detail=f"Invalid dataset ID: {dataset_id}")
+        
+    # Check availability
+    if dataset_id == "carinthia" and not os.path.exists("data/raw/carinthia/data/images"):
+        raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+    elif dataset_id == "miic" and not os.path.exists("data/raw/miic"):
+        raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+    elif dataset_id == "nist" and not os.path.exists("data/raw/nist"):
+        raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+        
+    samples = []
+    
+    if dataset_id == "carinthia":
+        folder = "data/raw/carinthia/data/images"
+        paths = sorted(glob.glob(os.path.join(folder, "*.jpg")))
+        for p in paths[:50]: # Return first 50 files for UI loading speed
+            fname = os.path.basename(p)
+            samples.append({"id": fname, "name": fname})
+            
+    elif dataset_id == "miic":
+        folder = "data/raw/miic"
+        paths = sorted(glob.glob(os.path.join(folder, "**", "*.jpg"), recursive=True))
+        for p in paths[:50]:
+            rel = os.path.relpath(p, folder).replace('\\', '/')
+            samples.append({"id": rel, "name": rel})
+            
+    elif dataset_id == "nist":
+        folder = "data/raw/nist"
+        paths = sorted(glob.glob(os.path.join(folder, "set*", "*.tiff")))
+        for p in paths[:100]: # Allow more for noise/contrast combinations
+            rel = os.path.relpath(p, folder).replace('\\', '/')
+            samples.append({"id": rel, "name": rel})
+            
+    return {
+        "dataset": dataset_id,
+        "samples": samples
+    }
+
+@app.get("/api/datasets/{dataset_id}/samples/{sample_id:path}")
+def get_sample_metadata(dataset_id: str, sample_id: str):
+    """Returns metadata and preview details for a specific sample."""
+    if dataset_id not in ["carinthia", "miic", "nist"]:
+        raise HTTPException(status_code=400, detail=f"Invalid dataset ID: {dataset_id}")
+        
+    if dataset_id == "carinthia":
+        base_dir = "data/raw/carinthia/data/images"
+        sample_path = get_safe_path(base_dir, os.path.basename(sample_id))
+    elif dataset_id == "miic":
+        base_dir = "data/raw/miic"
+        sample_path = get_safe_path(base_dir, sample_id)
+    elif dataset_id == "nist":
+        base_dir = "data/raw/nist"
+        sample_path = get_safe_path(base_dir, sample_id)
+        
+    if not os.path.exists(sample_path):
+        raise HTTPException(status_code=404, detail="Sample image not found on disk.")
+        
+    img = cv2.imread(sample_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Failed to parse sample image file.")
+        
+    h, w = img.shape
+    metadata = {
+        "id": sample_id,
+        "name": os.path.basename(sample_path),
+        "dimensions": f"{w}x{h}",
+        "noise_level": "N/A",
+        "contrast_level": "N/A"
+    }
+    
+    if dataset_id == "nist":
+        filename = os.path.basename(sample_path)
+        match = re.search(r'noise_(\d+)_contrast_(\d+)', filename)
+        if match:
+            metadata["noise_level"] = int(match.group(1))
+            metadata["contrast_level"] = int(match.group(2))
+            
+    return metadata
+
 @app.post("/api/restore")
-async def restore(image: UploadFile = File(...), model: str = Form("transformer"), mode: str = Form("synthetic")):
+async def restore(
+    image: UploadFile = File(None), 
+    model: str = Form("transformer"), 
+    mode: str = Form("synthetic"),
+    dataset: str = Form(None),
+    sample_id: str = Form(None)
+):
     if model not in ["bicubic", "cnn", "transformer"]:
         raise HTTPException(status_code=400, detail="Invalid model selection")
         
     try:
-        # Read uploaded image bytes
-        contents = await image.read()
-        nparr = np.frombuffer(contents, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+        lr_np = None
+        hr_reference_np = None
+        filename_label = "custom_upload.png"
         
-        if img is None:
-            raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+        # Load sample from dataset if specified
+        if dataset:
+            if dataset not in ["carinthia", "miic", "nist"]:
+                raise HTTPException(status_code=400, detail=f"Invalid dataset ID: {dataset}")
+                
+            # Verify dataset existence
+            if dataset == "carinthia" and not os.path.exists("data/raw/carinthia/data/images"):
+                raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+            elif dataset == "miic" and not os.path.exists("data/raw/miic"):
+                raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+            elif dataset == "nist" and not os.path.exists("data/raw/nist"):
+                raise HTTPException(status_code=400, detail="Dataset unavailable — run dataset acquisition.")
+                
+            # Resolve safe sample path
+            if dataset == "carinthia":
+                sample_path = get_safe_path("data/raw/carinthia/data/images", os.path.basename(sample_id))
+            elif dataset == "miic":
+                sample_path = get_safe_path("data/raw/miic", sample_id)
+            elif dataset == "nist":
+                sample_path = get_safe_path("data/raw/nist", sample_id)
+                
+            if not os.path.exists(sample_path):
+                raise HTTPException(status_code=400, detail=f"Sample not found: {sample_id}")
+                
+            img = cv2.imread(sample_path, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                raise HTTPException(status_code=400, detail="Failed to load sample image.")
+                
+            filename_label = os.path.basename(sample_path)
             
-        lr_np = np.float32(img) / 255.0
-        
+            # Handle NIST reference and synthetic degradation
+            if dataset == "nist" and mode == "synthetic":
+                # Find matching set reference
+                match = re.search(r'set(\d+)', sample_id)
+                set_num = int(match.group(1)) if match else 1
+                ref_path = os.path.join("data/raw/nist", "masks", "masks", f"set{set_num}_cex_noise_000_contrast_100.tiff")
+                
+                if os.path.exists(ref_path):
+                    ref_img = cv2.imread(ref_path, cv2.IMREAD_GRAYSCALE)
+                    if ref_img is not None:
+                        hr_reference_np = np.float32(ref_img) / 255.0
+                        # Synthesize a moderate LR degradation
+                        from scripts.generate_degradation_levels import apply_controlled_degradation
+                        lr_np, _ = apply_controlled_degradation(hr_reference_np, 2)
+                else:
+                    # Fallback to direct read if ref is missing
+                    lr_np = np.float32(img) / 255.0
+            
+            elif mode == "synthetic" and dataset in ["carinthia", "miic"]:
+                # Original high-quality images act as HR Reference Source Images
+                # Standardize to 256x256
+                h, w = img.shape
+                if h < 256 or w < 256:
+                    hr = cv2.resize(img, (256, 256), interpolation=cv2.INTER_CUBIC)
+                else:
+                    ch, cw = h // 2, w // 2
+                    hr = img[ch-128:ch+128, cw-128:cw+128]
+                hr_reference_np = np.float32(hr) / 255.0
+                from scripts.generate_degradation_levels import apply_controlled_degradation
+                lr_np, _ = apply_controlled_degradation(hr_reference_np, 2)
+                
+            else:
+                # Real Blind Mode: treat loaded image as degraded directly
+                lr_np = np.float32(img) / 255.0
+                
+        else:
+            # File Upload Ingest
+            if not image:
+                raise HTTPException(status_code=400, detail="No input file or dataset sample provided.")
+                
+            contents = await image.read()
+            nparr = np.frombuffer(contents, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+            
+            if img is None:
+                raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+                
+            lr_np = np.float32(img) / 255.0
+            filename_label = image.filename
+            
         # Get restorer
         restorer = get_restorer(model)
         
@@ -110,21 +319,34 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
         restored, confidence, deviation, risk = restorer.restore_image(lr_np, patch_size=64)
         elapsed_time = time.time() - start_time
         
-        # Look for ground truth to calculate metrics (only if mode is synthetic)
+        # Calculate metrics (only if mode is synthetic)
         psnr_val = None
         ssim_val = None
         edge_val = None
         
         if mode == "synthetic":
-            gt_path = find_ground_truth(image.filename)
-            if gt_path is not None:
-                gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
-                if gt_img is not None and gt_img.shape == restored.shape:
-                    gt_np = np.float32(gt_img) / 255.0
-                    psnr_val = calculate_psnr(restored, gt_np)
-                    ssim_val = calculate_ssim(restored, gt_np)
-                    edge_val = calculate_edge_preservation(restored, gt_np)
-                    
+            # If we generated synthetic degradation from a reference
+            if hr_reference_np is not None:
+                # Align dimensions
+                gt_h, gt_w = hr_reference_np.shape
+                if restored.shape != hr_reference_np.shape:
+                    restored_eval = cv2.resize(restored, (gt_w, gt_h), interpolation=cv2.INTER_AREA)
+                else:
+                    restored_eval = restored
+                psnr_val = float(calculate_psnr(restored_eval, hr_reference_np))
+                ssim_val = float(calculate_ssim(restored_eval, hr_reference_np))
+                edge_val = float(calculate_edge_preservation(restored_eval, hr_reference_np))
+            else:
+                # Look for custom upload ground truth
+                gt_path = find_ground_truth(filename_label)
+                if gt_path is not None:
+                    gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+                    if gt_img is not None and gt_img.shape == restored.shape:
+                        gt_np = np.float32(gt_img) / 255.0
+                        psnr_val = float(calculate_psnr(restored, gt_np))
+                        ssim_val = float(calculate_ssim(restored, gt_np))
+                        edge_val = float(calculate_edge_preservation(restored, gt_np))
+                        
         # Load warning thresholds if available
         thresholds_path = "configs/warning_thresholds.json"
         warning_conf = 0.6236
@@ -145,8 +367,8 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
             warning_msg = f"Reconstruction consistency ({mean_conf:.3f}) falls below empirical threshold ({warning_conf:.3f}). Inspection required."
 
         # Prepare response
-        return {
-            "filename": image.filename,
+        res_dict = {
+            "filename": filename_label,
             "model": model,
             "mode": mode,
             "inference_time_ms": elapsed_time * 1000.0,
@@ -163,7 +385,10 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
             "risk_b64": colormap_to_base64_png(risk, cv2.COLORMAP_MAGMA),
             "original_b64": array_to_base64_png(lr_np)
         }
+        return res_dict
         
+    except HTTPException as he:
+        raise he
     except Exception as e:
         import traceback
         traceback.print_exc()
