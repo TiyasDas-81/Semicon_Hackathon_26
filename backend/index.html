@@ -751,8 +751,22 @@
                 edgeMetric.textContent = data.edge_preservation !== null ? data.edge_preservation.toFixed(4) : "N/A";
                 timeMetric.textContent = `${data.inference_time_ms.toFixed(1)} ms`;
                 
-                // Estimate average confidence from colormap or direct estimation
-                confidenceMetric.textContent = data.psnr !== null ? `${(100 - (20/data.psnr)*10).toFixed(1)}%` : "92.4% (est)";
+                // Display mean confidence from backend
+                const meanConfVal = data.mean_confidence !== undefined ? data.mean_confidence : 0.924;
+                confidenceMetric.textContent = `${(meanConfVal * 100).toFixed(1)}%`;
+                
+                // Update system warning status
+                if (data.warning_flag) {
+                    systemStatus.textContent = "SYS_STATUS: ALARM (LOW CONFIDENCE)";
+                    systemStatus.style.borderColor = "var(--color-secondary)";
+                    systemStatus.style.backgroundColor = "rgba(255, 62, 62, 0.1)";
+                    systemStatus.style.color = "var(--color-secondary)";
+                } else {
+                    systemStatus.textContent = "SYS_STATUS: ACTIVE";
+                    systemStatus.style.borderColor = "var(--color-success)";
+                    systemStatus.style.backgroundColor = "rgba(0, 230, 118, 0.1)";
+                    systemStatus.style.color = "var(--color-success)";
+                }
                 
             } catch (error) {
                 console.error(error);

@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import base64
 import time
+import json
 import cv2
 import numpy as np
 import yaml
@@ -123,6 +124,25 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
                 ssim_val = calculate_ssim(restored, gt_np)
                 edge_val = calculate_edge_preservation(restored, gt_np)
                 
+        # Load warning thresholds if available
+        thresholds_path = "configs/warning_thresholds.json"
+        warning_conf = 0.88
+        warning_msg = ""
+        is_warning = False
+        
+        if os.path.exists(thresholds_path):
+            try:
+                with open(thresholds_path, "r") as f:
+                    t_data = json.load(f)
+                    warning_conf = t_data.get("warning_confidence", 0.88)
+            except Exception:
+                pass
+                
+        mean_conf = float(confidence.mean())
+        if mean_conf < warning_conf:
+            is_warning = True
+            warning_msg = f"Reconstruction consistency ({mean_conf:.3f}) falls below empirical threshold ({warning_conf:.3f}). Inspection required."
+
         # Prepare response
         return {
             "filename": image.filename,
@@ -131,6 +151,10 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
             "psnr": psnr_val,
             "ssim": ssim_val,
             "edge_preservation": edge_val,
+            "warning_flag": is_warning,
+            "warning_message": warning_msg,
+            "warning_threshold": warning_conf,
+            "mean_confidence": mean_conf,
             "restored_b64": array_to_base64_png(restored),
             "confidence_b64": colormap_to_base64_png(confidence, cv2.COLORMAP_JET),
             "deviation_b64": colormap_to_base64_png(deviation, cv2.COLORMAP_HOT),
