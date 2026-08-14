@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Datasets (large files generated programmatically)
+data/
+
+# Checkpoints
+checkpoints/
+
+# Log files and CSV trackers
+logs/
+experiments/*.csv
+experiments/*.png
+
+# IDE and system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

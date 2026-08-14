@@ -1,0 +1,14 @@
+torch
+torchvision
+fastapi
+uvicorn
+pyyaml
+scikit-image
+opencv-python
+matplotlib
+pandas
+tqdm
+python-multipart
+scikit-learn
+pydantic
+python-dotenv
