@@ -1,0 +1,46 @@
+{
+    "Carinthia": {
+        "dataset": "Carinthia SEM Defect Dataset",
+        "number_of_observations": 4591,
+        "image_dimensions": "256x256 (HR), 64x64 (LR)",
+        "image_type": "float32",
+        "paired_unpaired": "Paired (degraded generated from HR source)",
+        "ground_truth_available": "Yes (synthetic HR ground truth)",
+        "degradation_type": "Synthetic (controlled blur, Poisson shot noise, downsampling)",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "source": "Zenodo (https://zenodo.org/records/10715190)"
+    },
+    "MIIC": {
+        "dataset": "MIIC - Microscopic Images of Integrated Circuits",
+        "number_of_observations": 1890,
+        "image_dimensions": "256x256 (HR), 64x64 (LR)",
+        "image_type": "float32",
+        "paired_unpaired": "Paired (degraded generated from HR source)",
+        "ground_truth_available": "Yes (synthetic HR ground truth)",
+        "degradation_type": "Synthetic (controlled blur, Poisson shot noise, downsampling)",
+        "license": "Academic Non-Commercial (https://github.com/wenbihan/MIIC-IAD)",
+        "source": "GitHub (https://github.com/wenbihan/MIIC-IAD)"
+    },
+    "NIST_Paired": {
+        "dataset": "NIST Detection Limits for SEM (Paired)",
+        "number_of_observations": 567,
+        "image_dimensions": "512x512 (LR), 512x512 (HR)",
+        "image_type": "float32",
+        "paired_unpaired": "Paired (degraded matched to noise-free reference)",
+        "ground_truth_available": "Yes (noise-free reference image set*_cex_noise_000_contrast_100.tiff)",
+        "degradation_type": "Real Controlled (ARTIMAGEN simulated Poisson noise/contrast grid)",
+        "license": "Public Domain (U.S. Government Work)",
+        "source": "NIST PDR (https://doi.org/10.18434/mds2-3838)"
+    },
+    "NIST_Blind": {
+        "dataset": "NIST Detection Limits for SEM (Blind)",
+        "number_of_observations": 567,
+        "image_dimensions": "512x512",
+        "image_type": "float32",
+        "paired_unpaired": "Unpaired",
+        "ground_truth_available": "No",
+        "degradation_type": "Real Controlled (ARTIMAGEN simulated Poisson noise/contrast grid)",
+        "license": "Public Domain (U.S. Government Work)",
+        "source": "NIST PDR (https://doi.org/10.18434/mds2-3838)"
+    }
+}

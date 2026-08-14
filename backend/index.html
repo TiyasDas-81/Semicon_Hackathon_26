@@ -463,6 +463,13 @@
                     </select>
                 </div>
                 <div class="control-group">
+                    <label for="modeSelect">Console Operating Mode</label>
+                    <select id="modeSelect" class="select-input">
+                        <option value="synthetic" selected>Synthetic Benchmark Mode</option>
+                        <option value="real">Real SEM Mode (Blind)</option>
+                    </select>
+                </div>
+                <div class="control-group">
                     <label>Upscale Scale Factor</label>
                     <select id="scaleSelect" class="select-input" disabled>
                         <option value="4">4x Spatial Resolution</option>
@@ -534,8 +541,16 @@
                         <!-- Colormap tabs -->
                         <div class="view-tabs" id="viewTabs" style="display: none;">
                             <button class="tab-btn active" onclick="setViewMode('restored')">Restored</button>
-                            <button class="tab-btn" onclick="setViewMode('confidence')">Confidence</button>
-                            <button class="tab-btn" onclick="setViewMode('deviation')">Deviation</button>
+                            <button class="tab-btn" onclick="setViewMode('confidence')">Consistency Map</button>
+                            <button class="tab-btn" onclick="setViewMode('deviation')">Deviation Map</button>
+                            <button class="tab-btn" onclick="setViewMode('risk')">Risk Map</button>
+                        </div>
+                        
+                        <!-- Risk legend -->
+                        <div id="riskLegend" style="display: none; margin-top: 8px; font-family: var(--font-mono); font-size: 11px; display: flex; gap: 15px; justify-content: center; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box;">
+                            <span style="color: #ffffff; display: flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 10px; height: 10px; background-color: #0b0914; border: 1px solid #555; border-radius: 2px;"></span> Low Risk</span>
+                            <span style="color: #ffffff; display: flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 10px; height: 10px; background-color: #e65c40; border-radius: 2px;"></span> Medium Risk</span>
+                            <span style="color: #ffffff; display: flex; align-items: center; gap: 4px;"><span style="display: inline-block; width: 10px; height: 10px; background-color: #fde725; border-radius: 2px;"></span> High Risk</span>
                         </div>
                     </div>
                 </div>
@@ -599,6 +614,7 @@
         let restoredBase64 = "";
         let confidenceBase64 = "";
         let deviationBase64 = "";
+        let riskBase64 = "";
         let currentFilename = "";
         
         let originalImgObject = null;
@@ -713,6 +729,7 @@
                 formData.append("image", blob, currentFilename);
             }
             formData.append("model", modelSelect.value);
+            formData.append("mode", document.getElementById("modeSelect").value);
             
             try {
                 const res = await fetch("/api/restore", {
@@ -728,11 +745,13 @@
                 restoredBase64 = data.restored_b64;
                 confidenceBase64 = data.confidence_b64;
                 deviationBase64 = data.deviation_b64;
+                riskBase64 = data.risk_b64;
                 
                 outputImg.src = restoredBase64;
                 outputImg.style.display = "block";
                 outputPlaceholder.style.display = "none";
                 viewTabs.style.display = "flex";
+                document.getElementById("riskLegend").style.display = "none";
                 
                 // Reset tab state
                 document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -746,9 +765,9 @@
                 };
                 
                 // Metrics telemetry
-                psnrMetric.textContent = data.psnr !== null ? `${data.psnr.toFixed(2)} dB` : "N/A";
-                ssimMetric.textContent = data.ssim !== null ? data.ssim.toFixed(4) : "N/A";
-                edgeMetric.textContent = data.edge_preservation !== null ? data.edge_preservation.toFixed(4) : "N/A";
+                psnrMetric.textContent = data.psnr !== null ? `${data.psnr.toFixed(2)} dB` : "N/A - Real Scan";
+                ssimMetric.textContent = data.ssim !== null ? data.ssim.toFixed(4) : "N/A - Real Scan";
+                edgeMetric.textContent = data.edge_preservation !== null ? data.edge_preservation.toFixed(4) : "N/A - Real Scan";
                 timeMetric.textContent = `${data.inference_time_ms.toFixed(1)} ms`;
                 
                 // Display mean confidence from backend
@@ -757,12 +776,12 @@
                 
                 // Update system warning status
                 if (data.warning_flag) {
-                    systemStatus.textContent = "SYS_STATUS: ALARM (LOW CONFIDENCE)";
+                    systemStatus.innerHTML = `SYS_STATUS: ALARM (LOW CONFIDENCE)<br><span style="font-size:10px; font-weight:normal; display:block; margin-top:4px; line-height:1.25;">High-risk regions indicate areas where the restoration differs substantially from the interpolation baseline and has weak reconstruction consistency. These regions require human inspection.</span>`;
                     systemStatus.style.borderColor = "var(--color-secondary)";
                     systemStatus.style.backgroundColor = "rgba(255, 62, 62, 0.1)";
                     systemStatus.style.color = "var(--color-secondary)";
                 } else {
-                    systemStatus.textContent = "SYS_STATUS: ACTIVE";
+                    systemStatus.innerHTML = "SYS_STATUS: ACTIVE";
                     systemStatus.style.borderColor = "var(--color-success)";
                     systemStatus.style.backgroundColor = "rgba(0, 230, 118, 0.1)";
                     systemStatus.style.color = "var(--color-success)";
@@ -789,10 +808,16 @@
             
             if (mode === "restored") {
                 outputImg.src = restoredBase64;
+                document.getElementById("riskLegend").style.display = "none";
             } else if (mode === "confidence") {
                 outputImg.src = confidenceBase64;
+                document.getElementById("riskLegend").style.display = "none";
             } else if (mode === "deviation") {
                 outputImg.src = deviationBase64;
+                document.getElementById("riskLegend").style.display = "none";
+            } else if (mode === "risk") {
+                outputImg.src = riskBase64;
+                document.getElementById("riskLegend").style.display = "flex";
             }
         }
 

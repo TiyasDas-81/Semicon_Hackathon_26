@@ -1,0 +1,8 @@
+{
+    "mu_modification": 0.0754290521144867,
+    "mu_consistency": 0.07739096879959106,
+    "calibration_date": "2026-08-14",
+    "validation_samples_count": 20,
+    "source_dataset": "Carinthia SEM Defect Dataset",
+    "description": "Validation-set calibration parameters used to normalize risk mapping telemetry."
+}

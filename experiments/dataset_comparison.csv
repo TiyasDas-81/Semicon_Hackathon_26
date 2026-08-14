@@ -1,0 +1,13 @@
+dataset,training_type,model,degradation,scale,PSNR,SSIM,edge_score,consistency_error,inference_time,notes
+"Carinthia (Paired, Synthetic)",None,Bicubic,Controlled,4x,24.70,0.3662,0.8204,0.1981,7.9,Synthetic 4x scaling
+"Carinthia (Paired, Synthetic)",Supervised,CNN,Controlled,4x,24.58,0.7048,0.9350,0.6787,31.3,Synthetic 4x scaling
+"Carinthia (Paired, Synthetic)",Supervised,Transformer,Controlled,4x,22.91,0.6482,0.9235,0.7524,24.9,Synthetic 4x scaling
+"MIIC (Paired, Synthetic)",None,Bicubic,Controlled,4x,23.82,0.4367,0.8701,0.2008,1.2,Synthetic 4x scaling
+"MIIC (Paired, Synthetic)",Supervised,CNN,Controlled,4x,20.70,0.5988,0.9132,0.7976,2.7,Synthetic 4x scaling
+"MIIC (Paired, Synthetic)",Supervised,Transformer,Controlled,4x,19.85,0.5557,0.9033,0.8380,8.2,Synthetic 4x scaling
+"NIST (Paired, Ground Truth)",None,Bicubic,NIST Noise Grid,4x,13.17,0.8214,0.8857,0.0086,71.8,ARTIMAGEN simulated noise/contrast
+"NIST (Paired, Ground Truth)",Supervised,CNN,NIST Noise Grid,4x,14.18,0.8216,0.9577,0.9941,148.3,ARTIMAGEN simulated noise/contrast
+"NIST (Paired, Ground Truth)",Supervised,Transformer,NIST Noise Grid,4x,14.27,0.8139,0.9566,0.9947,537.7,ARTIMAGEN simulated noise/contrast
+"NIST (Blind, Unpaired)",None,Bicubic,NIST Noise Grid,4x,N/A - Blind,N/A - Blind,0.9862,0.0086,69.4,ARTIMAGEN simulated noise/contrast (Blind Metrology Mode)
+"NIST (Blind, Unpaired)",Supervised,CNN,NIST Noise Grid,4x,N/A - Blind,N/A - Blind,0.8643,0.9941,86.2,ARTIMAGEN simulated noise/contrast (Blind Metrology Mode)
+"NIST (Blind, Unpaired)",Supervised,Transformer,NIST Noise Grid,4x,N/A - Blind,N/A - Blind,0.8650,0.9947,468.6,ARTIMAGEN simulated noise/contrast (Blind Metrology Mode)

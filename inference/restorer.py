@@ -28,6 +28,20 @@ class SemiconImageRestorer:
         self.scale = self.cfg.get("scale", 4)
         self.model_type = model_type
         
+        # Load calibration parameters if available
+        import json
+        self.calib_path = "configs/risk_calibration.json"
+        self.mu_modification = 0.07543
+        self.mu_consistency = 0.07739
+        if os.path.exists(self.calib_path):
+            try:
+                with open(self.calib_path, "r") as f:
+                    calib_data = json.load(f)
+                    self.mu_modification = calib_data.get("mu_modification", 0.07543)
+                    self.mu_consistency = calib_data.get("mu_consistency", 0.07739)
+            except Exception:
+                pass
+        
         # Load model
         if model_type == "bicubic":
             self.model = BicubicBaseline(scale=self.scale)
@@ -80,8 +94,8 @@ class SemiconImageRestorer:
             pred_np = np.clip(pred_np, 0.0, 1.0)
             
             # Compute confidence maps
-            confidence, deviation = self.compute_confidence_maps(lr_np, pred_np)
-            return pred_np, confidence, deviation
+            confidence, deviation, risk = self.compute_confidence_maps(lr_np, pred_np)
+            return pred_np, confidence, deviation, risk
             
         # Overlapping patch-based tiling & stitching
         out_h, out_w = h * scale, w * scale
@@ -128,32 +142,43 @@ class SemiconImageRestorer:
         restored = np.clip(restored, 0.0, 1.0)
         
         # Compute confidence maps
-        confidence, deviation = self.compute_confidence_maps(lr_np, restored)
+        confidence, deviation, risk = self.compute_confidence_maps(lr_np, restored)
         
-        return restored, confidence, deviation
+        return restored, confidence, deviation, risk
 
     def compute_confidence_maps(self, lr_np, restored_np):
-        """Computes deviation map and cycle-consistency reconstruction error (confidence)."""
+        """Computes AI modification, cycle-consistency reconstruction error,
+        normalized confidence score, and potential hallucination risk map.
+        """
         scale = self.scale
         h, w = lr_np.shape
         out_h, out_w = restored_np.shape
         
-        # 1. Bicubic baseline comparison (Deviation Map)
-        # Shows where the AI restored sharp features compared to default math interpolation
+        # 1. AI Modification (HR resolution): |F(Y) - Bicubic(Y)|
+        # Measures structural updates relative to the standard upscaling baseline
         bicubic_upscaled = cv2.resize(lr_np, (out_w, out_h), interpolation=cv2.INTER_CUBIC)
         deviation = np.abs(restored_np - bicubic_upscaled)
         deviation = np.clip(deviation, 0.0, 1.0)
         
-        # 2. Cycle-Consistency / Reconstruction Error Map (Confidence indicator)
-        # Downscale the restored image back and compare to original LR image
+        # 2. Consistency Error (LR resolution): |Y - D(F(Y))|
+        # Downscale the restored image back using Area interpolation to match raw input resolution
         downscaled = cv2.resize(restored_np, (w, h), interpolation=cv2.INTER_AREA)
         reconstruction_error = np.abs(lr_np - downscaled)
         
-        # Upscale reconstruction error map to match HR dimensions for visual display
+        # 3. Upscale consistency error to HR resolution for visualization mapping
         reconstruction_error_hr = cv2.resize(reconstruction_error, (out_w, out_h), interpolation=cv2.INTER_CUBIC)
         
-        # Convert error map to a confidence score map: higher error = lower confidence
-        # Map error of 0.0 -> confidence of 1.0, and error of 0.25 -> confidence of 0.0
-        confidence = 1.0 - np.clip(reconstruction_error_hr / 0.25, 0.0, 1.0)
+        # 4. Normalize maps using validation set statistics
+        normalized_mod = deviation / (self.mu_modification + 1e-8)
+        normalized_const_hr = reconstruction_error_hr / (self.mu_consistency + 1e-8)
         
-        return confidence, deviation
+        # 5. Potential Hallucination Risk Map: NormalizedMod * NormalizedConst
+        # High AI change + Low consistency = potentially unreliable restoration region requiring inspection.
+        potential_risk = normalized_mod * normalized_const_hr
+        potential_risk = np.clip(potential_risk, 0.0, 1.0)  # Bound for visual output display
+        
+        # 6. Global normalized confidence score
+        # Bounded between [0, 1] based on consistency error relative to validation mean
+        confidence = 1.0 - np.clip(normalized_const_hr, 0.0, 1.0)
+        
+        return confidence, deviation, potential_risk

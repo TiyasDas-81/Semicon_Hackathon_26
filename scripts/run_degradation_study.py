@@ -62,7 +62,7 @@ def main():
                 lr_np = cv2.imread(lr_f, cv2.IMREAD_GRAYSCALE) / 255.0
                 hr_np = cv2.imread(hr_f, cv2.IMREAD_GRAYSCALE) / 255.0
                 
-                restored, confidence_map, deviation_map = restorer.restore_image(lr_np, patch_size=None)
+                restored, confidence_map, deviation_map, risk_map = restorer.restore_image(lr_np, patch_size=None)
                 
                 # Metrics
                 psnr = calculate_psnr(restored, hr_np)

@@ -87,7 +87,7 @@ def list_models():
     }
 
 @app.post("/api/restore")
-async def restore(image: UploadFile = File(...), model: str = Form("transformer")):
+async def restore(image: UploadFile = File(...), model: str = Form("transformer"), mode: str = Form("synthetic")):
     if model not in ["bicubic", "cnn", "transformer"]:
         raise HTTPException(status_code=400, detail="Invalid model selection")
         
@@ -107,26 +107,27 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
         
         # Perform restoration
         start_time = time.time()
-        restored, confidence, deviation = restorer.restore_image(lr_np, patch_size=64)
+        restored, confidence, deviation, risk = restorer.restore_image(lr_np, patch_size=64)
         elapsed_time = time.time() - start_time
         
-        # Look for ground truth to calculate metrics (for interactive demo evaluation)
-        gt_path = find_ground_truth(image.filename)
+        # Look for ground truth to calculate metrics (only if mode is synthetic)
         psnr_val = None
         ssim_val = None
         edge_val = None
         
-        if gt_path is not None:
-            gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
-            if gt_img is not None and gt_img.shape == restored.shape:
-                gt_np = np.float32(gt_img) / 255.0
-                psnr_val = calculate_psnr(restored, gt_np)
-                ssim_val = calculate_ssim(restored, gt_np)
-                edge_val = calculate_edge_preservation(restored, gt_np)
-                
+        if mode == "synthetic":
+            gt_path = find_ground_truth(image.filename)
+            if gt_path is not None:
+                gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+                if gt_img is not None and gt_img.shape == restored.shape:
+                    gt_np = np.float32(gt_img) / 255.0
+                    psnr_val = calculate_psnr(restored, gt_np)
+                    ssim_val = calculate_ssim(restored, gt_np)
+                    edge_val = calculate_edge_preservation(restored, gt_np)
+                    
         # Load warning thresholds if available
         thresholds_path = "configs/warning_thresholds.json"
-        warning_conf = 0.88
+        warning_conf = 0.6236
         warning_msg = ""
         is_warning = False
         
@@ -134,7 +135,7 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
             try:
                 with open(thresholds_path, "r") as f:
                     t_data = json.load(f)
-                    warning_conf = t_data.get("warning_confidence", 0.88)
+                    warning_conf = t_data.get("warning_confidence", 0.6236)
             except Exception:
                 pass
                 
@@ -147,6 +148,7 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
         return {
             "filename": image.filename,
             "model": model,
+            "mode": mode,
             "inference_time_ms": elapsed_time * 1000.0,
             "psnr": psnr_val,
             "ssim": ssim_val,
@@ -156,8 +158,9 @@ async def restore(image: UploadFile = File(...), model: str = Form("transformer"
             "warning_threshold": warning_conf,
             "mean_confidence": mean_conf,
             "restored_b64": array_to_base64_png(restored),
-            "confidence_b64": colormap_to_base64_png(confidence, cv2.COLORMAP_JET),
-            "deviation_b64": colormap_to_base64_png(deviation, cv2.COLORMAP_HOT),
+            "confidence_b64": colormap_to_base64_png(confidence, cv2.COLORMAP_VIRIDIS),
+            "deviation_b64": colormap_to_base64_png(deviation, cv2.COLORMAP_INFERNO),
+            "risk_b64": colormap_to_base64_png(risk, cv2.COLORMAP_MAGMA),
             "original_b64": array_to_base64_png(lr_np)
         }
         
