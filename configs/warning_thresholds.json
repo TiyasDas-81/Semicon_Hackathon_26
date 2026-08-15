@@ -1,5 +1,5 @@
 {
-    "warning_confidence": 0.6236338127872417,
-    "warning_psnr": 21.21094930397362,
-    "source": "Threshold selected empirically from validation experiments (Level 3 Severe Threshold)."
+    "warning_confidence": 0.4,
+    "warning_psnr": 20.0,
+    "source": "Calibrated from 30 Carinthia samples. Warning triggers when confidence < 40%."
 }

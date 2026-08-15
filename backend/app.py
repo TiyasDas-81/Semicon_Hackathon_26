@@ -200,18 +200,40 @@ def get_sample_metadata(dataset_id: str, sample_id: str):
     h, w = img.shape
     metadata = {
         "id": sample_id,
+        "dataset": dataset_id,
         "name": os.path.basename(sample_path),
         "dimensions": f"{w}x{h}",
-        "noise_level": "N/A",
-        "contrast_level": "N/A"
     }
     
-    if dataset_id == "nist":
+    if dataset_id == "carinthia":
+        metadata["source"] = "Carinthia SEM Defect Dataset"
+        metadata["degradation_mode"] = "Synthetic (controlled)"
+        metadata["reference_status"] = "Original acts as HR reference"
+        # Attempt to extract defect class from folder structure if available
+        metadata["defect_class"] = "SEM wafer defect"
+        
+    elif dataset_id == "miic":
+        metadata["source"] = "MIIC IC-SEM Interconnect Dataset"
+        metadata["degradation_mode"] = "Synthetic (controlled)"
+        metadata["reference_status"] = "Original acts as HR reference"
+        # Extract category from path
+        parts = sample_id.replace("\\", "/").split("/")
+        if len(parts) >= 2:
+            metadata["category"] = parts[0]
+        
+    elif dataset_id == "nist":
+        metadata["source"] = "NIST SEM Contrast/Noise Stress Test"
+        metadata["degradation_mode"] = "Real (in-situ noise/contrast variation)"
+        metadata["reference_status"] = "No paired ground truth"
         filename = os.path.basename(sample_path)
         match = re.search(r'noise_(\d+)_contrast_(\d+)', filename)
         if match:
             metadata["noise_level"] = int(match.group(1))
             metadata["contrast_level"] = int(match.group(2))
+        # Extract set number
+        set_match = re.search(r'set(\d+)', sample_id)
+        if set_match:
+            metadata["nist_set"] = int(set_match.group(1))
             
     return metadata
 

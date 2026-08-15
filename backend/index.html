@@ -556,8 +556,8 @@
                         <div class="view-tabs" id="viewTabs" style="display: none;">
                             <button class="tab-btn active" onclick="setViewMode('restored')">Restored</button>
                             <button class="tab-btn" onclick="setViewMode('confidence')">Consistency Map</button>
-                            <button class="tab-btn" onclick="setViewMode('deviation')">Deviation Map</button>
-                            <button class="tab-btn" onclick="setViewMode('risk')">Risk Map</button>
+                            <button class="tab-btn" onclick="setViewMode('deviation')">AI Modification Map</button>
+                            <button class="tab-btn" onclick="setViewMode('risk')">Potential Risk Map</button>
                         </div>
                         
                         <!-- Risk legend -->
@@ -775,7 +775,7 @@
                 const res = await fetch(`/api/datasets/${dsId}/samples/${encodeURIComponent(sId)}`);
                 const data = await res.json();
                 
-                // Clear viewport to wait for Run button
+                // Clear output viewport to wait for Run button
                 outputImg.src = "";
                 outputImg.style.display = "none";
                 outputPlaceholder.style.display = "block";
@@ -783,18 +783,30 @@
                 viewTabs.style.display = "none";
                 document.getElementById("riskLegend").style.display = "none";
                 
-                // Set appropriate display text for parameters
+                // Build dataset-specific metadata display
                 const nameLabel = data.name;
                 const dimLabel = data.dimensions;
-                const noiseVal = data.noise_level !== "N/A" ? data.noise_level : "Metadata unavailable";
-                const contrastVal = data.contrast_level !== "N/A" ? data.contrast_level : "Metadata unavailable";
+                let metaHtml = `<strong>Sample:</strong> ${nameLabel}<br>`;
+                metaHtml += `<strong>Dimensions:</strong> ${dimLabel}<br>`;
                 
-                sampleMeta.innerHTML = `
-                    <strong>Sample Name:</strong> ${nameLabel}<br>
-                    <strong>Geom Dimensions:</strong> ${dimLabel}<br>
-                    <strong>NIST Noise Level:</strong> ${noiseVal}<br>
-                    <strong>NIST Contrast:</strong> ${contrastVal}
-                `;
+                if (data.dataset === "carinthia") {
+                    metaHtml += `<strong>Source:</strong> ${data.source || "Carinthia SEM"}<br>`;
+                    metaHtml += `<strong>Degradation:</strong> ${data.degradation_mode || "Synthetic"}<br>`;
+                    metaHtml += `<strong>Reference:</strong> ${data.reference_status || "HR available"}<br>`;
+                    if (data.defect_class) metaHtml += `<strong>Type:</strong> ${data.defect_class}`;
+                } else if (data.dataset === "miic") {
+                    metaHtml += `<strong>Source:</strong> ${data.source || "MIIC IC-SEM"}<br>`;
+                    metaHtml += `<strong>Degradation:</strong> ${data.degradation_mode || "Synthetic"}<br>`;
+                    if (data.category) metaHtml += `<strong>Category:</strong> ${data.category}`;
+                } else if (data.dataset === "nist") {
+                    metaHtml += `<strong>Source:</strong> ${data.source || "NIST SEM"}<br>`;
+                    if (data.nist_set !== undefined) metaHtml += `<strong>NIST Set:</strong> ${data.nist_set}<br>`;
+                    if (data.noise_level !== undefined) metaHtml += `<strong>Noise Level:</strong> ${data.noise_level}<br>`;
+                    if (data.contrast_level !== undefined) metaHtml += `<strong>Contrast Level:</strong> ${data.contrast_level}<br>`;
+                    metaHtml += `<strong>Mode:</strong> ${data.degradation_mode || "Real (no ground truth)"}`;
+                }
+                
+                sampleMeta.innerHTML = metaHtml;
                 sampleMeta.style.display = "block";
                 
                 inputPlaceholder.textContent = `READY FOR RESTORATION: ${nameLabel}`;
@@ -935,7 +947,7 @@
                 
                 // Update system warning status
                 if (data.warning_flag) {
-                    systemStatus.innerHTML = `SYS_STATUS: ALARM (LOW CONFIDENCE)<br><span style="font-size:10px; font-weight:normal; display:block; margin-top:4px; line-height:1.25;">High-risk regions indicate areas where the restoration differs substantially from the interpolation baseline and has weak reconstruction consistency. These regions require human inspection.</span>`;
+                    systemStatus.innerHTML = `SYS_STATUS: ALARM (LOW CONFIDENCE)<br><span style="font-size:10px; font-weight:normal; display:block; margin-top:4px; line-height:1.25;">Potential risk regions indicate areas where the AI model made substantial modifications with weak reconstruction consistency. These regions require human inspection before metrology use.</span>`;
                     systemStatus.style.borderColor = "var(--color-secondary)";
                     systemStatus.style.backgroundColor = "rgba(255, 62, 62, 0.1)";
                     systemStatus.style.color = "var(--color-secondary)";

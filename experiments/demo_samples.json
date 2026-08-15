@@ -1,0 +1,52 @@
+{
+  "recommended_samples": [
+    {
+      "index": 3,
+      "filename": "0024e071a0d547ac8d261f496de039b3.jpg",
+      "bicubic_psnr": 24.305274963378906,
+      "dl_psnr": 26.62481689453125,
+      "improvement": 2.3195419311523438,
+      "edge": 0.9380329024276177,
+      "confidence": 0.35667458176612854
+    },
+    {
+      "index": 11,
+      "filename": "007184cb72454f63b3fccd5024bd9b0f.jpg",
+      "bicubic_psnr": 24.28414535522461,
+      "dl_psnr": 26.153240203857422,
+      "improvement": 1.8690948486328125,
+      "edge": 0.9330295543833304,
+      "confidence": 0.3600403666496277
+    },
+    {
+      "index": 6,
+      "filename": "0037f2474b034ca384a3d3ef1911fe1d.jpg",
+      "bicubic_psnr": 24.582855224609375,
+      "dl_psnr": 26.091896057128906,
+      "improvement": 1.5090408325195312,
+      "edge": 0.80408760168059,
+      "confidence": 0.34855350852012634
+    },
+    {
+      "index": 4,
+      "filename": "002ba4bfc4914d6d8cf0f2855a9d72b6.jpg",
+      "bicubic_psnr": 24.537382125854492,
+      "dl_psnr": 25.42473030090332,
+      "improvement": 0.8873481750488281,
+      "edge": 0.9402380084621714,
+      "confidence": 0.3379553258419037
+    },
+    {
+      "index": 16,
+      "filename": "00990a9676434e83800749dd727d14ef.jpg",
+      "bicubic_psnr": 24.573169708251953,
+      "dl_psnr": 25.0875186920166,
+      "improvement": 0.5143489837646484,
+      "edge": 0.9361861040783337,
+      "confidence": 0.3301311731338501
+    }
+  ],
+  "selection_criteria": "Sorted by (PSNR improvement over bicubic + edge preservation score)",
+  "best_dl_model": "cnn",
+  "benchmark_images": 20
+}

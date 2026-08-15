@@ -2,7 +2,7 @@
 
 This repository contains the end-to-end implementation for our **Semicon India Hackathon Project — Track 2: AI-Based Restoration of Degraded Images**. 
 
-Our solution restores degraded, low-resolution, and noisy semiconductor (CD-SEM) wafer images to full spatial resolution using deep learning. It recovers critical gate patterns, contacts, and defects while preventing hallucinations through physical cycle-consistency mapping.
+Our solution restores degraded, low-resolution, and noisy semiconductor (CD-SEM) wafer images to full spatial resolution using deep learning. It recovers critical gate patterns, contacts, and defects while using physical cycle-consistency mapping to identify potential hallucination regions for human inspection.
 
 ---
 
@@ -13,7 +13,7 @@ During semiconductor manufacturing, Critical Dimension Scanning Electron Microsc
 
 ### The Solution
 We implement a deep-learning-based single-image super-resolution (SISR) pipeline optimized to run on consumer-grade hardware (4GB VRAM GPU) using:
-- A compound **Edge-Preserving Metrology Loss** to prevent hallucination.
+- A compound **Edge-Preserving Metrology Loss** to encourage structural fidelity.
 - **Overlap-Stitching Inference** to handle arbitrary high-resolution scans.
 - **Cycle-Consistency Confidence Telemetry** to flag low-confidence zones for human inspection.
 
