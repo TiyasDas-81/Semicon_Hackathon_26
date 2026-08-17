@@ -15,7 +15,7 @@ from models.transformer import SwinIRLight
 
 class SemiconImageRestorer:
     """Handles full-size image inference using patch-based restoration and confidence mapping."""
-    def __init__(self, model_type="cnn", checkpoint_path="checkpoints/best_cnn.pth", config_path="configs/default.yaml", device=None):
+    def __init__(self, model_type="cnn", checkpoint_path=None, config_path="configs/default.yaml", device=None):
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
@@ -27,6 +27,11 @@ class SemiconImageRestorer:
             
         self.scale = self.cfg.get("scale", 4)
         self.model_type = model_type
+        
+        # Resolve default checkpoint path per model_type if not explicitly provided
+        if checkpoint_path is None and model_type != "bicubic":
+            checkpoint_name = "best_cnn.pth" if model_type == "cnn" else "best_transformer.pth"
+            checkpoint_path = os.path.join("checkpoints", checkpoint_name)
         
         # Load calibration parameters if available
         import json
