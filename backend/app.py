@@ -100,9 +100,9 @@ def health():
 def list_models():
     return {
         "models": [
+            {"id": "cnn", "name": "EDSR-Light CNN (Main / Verified)"},
             {"id": "bicubic", "name": "Bicubic Interpolation (Baseline)"},
-            {"id": "cnn", "name": "EDSR-Light CNN"},
-            {"id": "transformer", "name": "SwinIR-Light Transformer (Main)"}
+            {"id": "transformer", "name": "SwinIR-Light Transformer (Experimental)"}
         ]
     }
 
@@ -240,7 +240,7 @@ def get_sample_metadata(dataset_id: str, sample_id: str):
 @app.post("/api/restore")
 async def restore(
     image: UploadFile = File(None), 
-    model: str = Form("transformer"), 
+    model: str = Form("cnn"), 
     mode: str = Form("synthetic"),
     dataset: str = Form(None),
     sample_id: str = Form(None)
@@ -296,7 +296,7 @@ async def restore(
                         hr_reference_np = np.float32(ref_img) / 255.0
                         # Synthesize a moderate LR degradation
                         from scripts.generate_degradation_levels import apply_controlled_degradation
-                        lr_np, _ = apply_controlled_degradation(hr_reference_np, 2)
+                        lr_np, _ = apply_controlled_degradation(hr_reference_np, 1)
                 else:
                     # Fallback to direct read if ref is missing
                     lr_np = np.float32(img) / 255.0
@@ -312,7 +312,7 @@ async def restore(
                     hr = img[ch-128:ch+128, cw-128:cw+128]
                 hr_reference_np = np.float32(hr) / 255.0
                 from scripts.generate_degradation_levels import apply_controlled_degradation
-                lr_np, _ = apply_controlled_degradation(hr_reference_np, 2)
+                lr_np, _ = apply_controlled_degradation(hr_reference_np, 1)
                 
             else:
                 # Real Blind Mode: treat loaded image as degraded directly

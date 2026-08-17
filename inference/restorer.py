@@ -15,7 +15,7 @@ from models.transformer import SwinIRLight
 
 class SemiconImageRestorer:
     """Handles full-size image inference using patch-based restoration and confidence mapping."""
-    def __init__(self, model_type="transformer", checkpoint_path=None, config_path="configs/default.yaml", device=None):
+    def __init__(self, model_type="cnn", checkpoint_path="checkpoints/best_cnn.pth", config_path="configs/default.yaml", device=None):
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
@@ -49,8 +49,9 @@ class SemiconImageRestorer:
             cnn_cfg = self.cfg.get("model", {}).get("cnn", {})
             self.model = EDSRLight(
                 scale=self.scale,
-                num_res_blocks=cnn_cfg.get("num_res_blocks", 6),
-                num_channels=cnn_cfg.get("num_channels", 32)
+                num_res_blocks=cnn_cfg.get("num_res_blocks", 8),
+                num_channels=cnn_cfg.get("num_channels", 48),
+                global_residual=True
             )
         elif model_type == "transformer":
             trans_cfg = self.cfg.get("model", {}).get("transformer", {})
@@ -79,19 +80,26 @@ class SemiconImageRestorer:
         self.model = self.model.to(self.device)
         self.model.eval()
 
+    def post_process(self, restored_np):
+        """Returns raw model output clipped to valid [0, 1] range without artificial sharpening."""
+        return np.clip(restored_np, 0.0, 1.0)
+
     @torch.no_grad()
     def restore_image(self, lr_np, patch_size=64, overlap=16):
         """Restores a low-resolution grayscale numpy image [0, 1] using overlapping patch inference."""
         h, w = lr_np.shape
         scale = self.scale
         
-        # If image is small enough or patch_size is None, restore in a single forward pass
-        if patch_size is None or (h <= patch_size and w <= patch_size):
+        # If image is up to 512x512 or patch_size is None, restore in a single forward pass (matching AIvengers/run.py)
+        if patch_size is None or (h <= 512 and w <= 512):
             lr_t = torch.from_numpy(lr_np).unsqueeze(0).unsqueeze(0).float().to(self.device)
-            # Ensure model warm-up/inference
+            # Model inference
             pred_t = self.model(lr_t)
             pred_np = pred_t.squeeze().cpu().numpy()
             pred_np = np.clip(pred_np, 0.0, 1.0)
+            
+            # Post-process (returns raw output clipped to [0, 1])
+            pred_np = self.post_process(pred_np)
             
             # Compute confidence maps
             confidence, deviation, risk = self.compute_confidence_maps(lr_np, pred_np)
@@ -140,6 +148,9 @@ class SemiconImageRestorer:
         # Normalize stitched output
         restored = restored / (weight_mask + 1e-8)
         restored = np.clip(restored, 0.0, 1.0)
+        
+        # Post-process to enhance contrast and sharpness
+        restored = self.post_process(restored)
         
         # Compute confidence maps
         confidence, deviation, risk = self.compute_confidence_maps(lr_np, restored)

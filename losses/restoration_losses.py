@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class EdgeLoss(nn.Module):
-    """Sobel edge preservation loss to enforce sharp boundary structures."""
+    """Sobel edge preservation loss to enforce sharp boundary structures and gradient magnitude matching."""
     def __init__(self):
         super(EdgeLoss, self).__init__()
         # Sobel kernels for X and Y directions
@@ -18,15 +18,20 @@ class EdgeLoss(nn.Module):
         
     def forward(self, pred, gt):
         # Assumes input is grayscale [B, 1, H, W]
-        # pad to keep dimensions same
         p_grad_x = F.conv2d(pred, self.kx, padding=1)
         p_grad_y = F.conv2d(pred, self.ky, padding=1)
         
         g_grad_x = F.conv2d(gt, self.kx, padding=1)
         g_grad_y = F.conv2d(gt, self.ky, padding=1)
         
-        loss = torch.mean(torch.abs(p_grad_x - g_grad_x)) + torch.mean(torch.abs(p_grad_y - g_grad_y))
-        return loss
+        # Gradient magnitude matching
+        p_mag = torch.sqrt(p_grad_x**2 + p_grad_y**2 + 1e-8)
+        g_mag = torch.sqrt(g_grad_x**2 + g_grad_y**2 + 1e-8)
+        
+        loss_grad = torch.mean(torch.abs(p_grad_x - g_grad_x)) + torch.mean(torch.abs(p_grad_y - g_grad_y))
+        loss_mag = torch.mean(torch.abs(p_mag - g_mag))
+        
+        return loss_grad + loss_mag
 
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([math.exp(-(x - window_size//2)**2/float(2*sigma**2)) for x in range(window_size)])
@@ -72,7 +77,7 @@ class SSIMLoss(nn.Module):
 
 class CompoundRestorationLoss(nn.Module):
     """Aggregated loss function: L_total = L_1 + lambda_ssim * L_SSIM + lambda_edge * L_edge"""
-    def __init__(self, lambda_ssim=0.2, lambda_edge=0.1):
+    def __init__(self, lambda_ssim=1.0, lambda_edge=1.0):
         super(CompoundRestorationLoss, self).__init__()
         self.l1 = nn.L1Loss()
         self.ssim = SSIMLoss()

@@ -36,19 +36,27 @@ def calculate_ssim(img1, img2):
     return ssim(img1, img2, data_range=1.0)
 
 def calculate_edge_preservation(img1, img2):
-    """Calculates Edge Preservation Score based on L1 difference between Sobel gradient maps."""
+    """Calculates Edge Preservation Score based on Sobel gradient correlation and relative gradient error."""
     grad1 = compute_sobel_gradients(img1)
     grad2 = compute_sobel_gradients(img2)
     
-    # Normalize gradients
-    grad1_max = grad1.max()
-    grad2_max = grad2.max()
-    if grad1_max > 0: grad1 = grad1 / grad1_max
-    if grad2_max > 0: grad2 = grad2 / grad2_max
+    # Gradient correlation
+    g1_flat = grad1.flatten()
+    g2_flat = grad2.flatten()
+    if g1_flat.std() > 1e-8 and g2_flat.std() > 1e-8:
+        corr = np.corrcoef(g1_flat, g2_flat)[0, 1]
+    else:
+        corr = 0.0
+    corr = max(0.0, float(corr))
     
-    mae_grad = np.mean(np.abs(grad1 - grad2))
-    score = 1.0 - np.clip(mae_grad, 0.0, 1.0)
-    return score
+    # Relative gradient MAE
+    mean_grad2 = float(grad2.mean()) + 1e-8
+    mae_grad = float(np.mean(np.abs(grad1 - grad2))) / mean_grad2
+    grad_acc = 1.0 / (1.0 + mae_grad)
+    
+    # Combined score
+    score = 0.5 * corr + 0.5 * grad_acc
+    return float(score)
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate and Benchmark Semiconductor Image Restoration Models")
@@ -98,7 +106,7 @@ def main():
         for name, restorer in restorers.items():
             start_time = time.time()
             # Perform restoration (disable patching for test size 256x256 as it fits in memory easily)
-            restored, conf, dev = restorer.restore_image(lr_np, patch_size=None)
+            restored, conf, dev, risk = restorer.restore_image(lr_np, patch_size=None)
             inference_time = time.time() - start_time
             
             psnr = calculate_psnr(restored, hr_np)

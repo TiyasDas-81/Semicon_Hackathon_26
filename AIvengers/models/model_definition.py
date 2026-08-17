@@ -18,8 +18,8 @@ class ResBlock(nn.Module):
         return out
 
 class EDSRLight(nn.Module):
-    """A lightweight version of EDSR customized for rapid training and 4GB GPU constraints."""
-    def __init__(self, scale=4, num_res_blocks=6, num_channels=32, in_channels=1, out_channels=1, global_residual=False):
+    """Lightweight EDSR with Global Residual Learning for semiconductor image restoration."""
+    def __init__(self, scale=4, num_res_blocks=8, num_channels=48, in_channels=1, out_channels=1, global_residual=True):
         super(EDSRLight, self).__init__()
         self.scale = scale
         self.global_residual = global_residual
@@ -33,8 +33,7 @@ class EDSRLight(nn.Module):
         # 3. Intermediate convolution before upsampling
         self.conv_after_body = nn.Conv2d(num_channels, num_channels, kernel_size=3, padding=1, bias=True)
         
-        # 4. Upsampling Module
-        # For scale=4, we use PixelShuffle. We need num_channels -> out_channels * scale^2 channels.
+        # 4. Upsampling Module (PixelShuffle)
         self.upsample = nn.Sequential(
             nn.Conv2d(num_channels, out_channels * (scale ** 2), kernel_size=3, padding=1, bias=True),
             nn.PixelShuffle(scale)
@@ -62,6 +61,6 @@ class EDSRLight(nn.Module):
         if self.global_residual:
             out = out + bicubic
         
-        # Clamp output to valid [0,1] range — use clamp not sigmoid to preserve full contrast
+        # Clamp output to valid [0,1] range
         out = torch.clamp(out, 0.0, 1.0)
         return out

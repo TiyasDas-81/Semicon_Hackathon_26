@@ -1,20 +1,8 @@
 {
-  "calibration": {
-    "mu_modification": 0.13009454309940338,
-    "mu_consistency": 0.13849681615829468,
-    "calibration_date": "2026-08-15",
-    "validation_samples_count": 30,
+    "mu_modification": 0.05091418698430061,
+    "mu_consistency": 0.05724744126200676,
+    "calibration_date": "2026-08-14",
+    "validation_samples_count": 20,
     "source_dataset": "Carinthia SEM Defect Dataset",
-    "calibration_model": "EDSR-Light (CNN)",
-    "raw_mu_modification": 0.06504727154970169,
-    "raw_mu_consistency": 0.06924840807914734,
-    "adjustment_method": "2x mean centering (average sample = ~50% confidence)",
-    "description": "Validation-set calibration parameters used to normalize risk mapping telemetry. Adjusted so that average Carinthia restoration yields ~50% confidence."
-  },
-  "warning_thresholds": {
-    "warning_confidence": 0.4,
-    "warning_psnr": 20.0,
-    "source": "Calibrated from 30 Carinthia samples. Warning triggers when confidence < 40%."
-  },
-  "notes": "Raw per-image data omitted from JSON; see model_comparison.csv for per-model statistics."
+    "description": "Validation-set calibration parameters used to normalize risk mapping telemetry."
 }

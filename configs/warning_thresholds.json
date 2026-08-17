@@ -1,5 +1,5 @@
 {
     "warning_confidence": 0.4,
-    "warning_psnr": 20.0,
-    "source": "Calibrated from 30 Carinthia samples. Warning triggers when confidence < 40%."
+    "warning_psnr": 25.0,
+    "source": "Calibrated from Carinthia SEM test set. Warning triggers when confidence < 40%."
 }

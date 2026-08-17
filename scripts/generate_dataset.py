@@ -223,11 +223,8 @@ def apply_sem_degradation(image, scale=4, cfg=None):
     noise_gauss = np.random.normal(0, gauss_sigma, (lr_h, lr_w))
     noisy_img = noisy_poisson + noise_gauss
     
-    # 5. Contrast and Brightness
-    c = random.uniform(contrast_min, contrast_max)
-    b = random.uniform(brightness_min, brightness_max)
-    adjusted_img = (noisy_img - 0.5) * c + 0.5 + b
-    adjusted_img = np.clip(adjusted_img, 0.0, 1.0)
+    # 5. Dynamic range normalization
+    adjusted_img = np.clip(noisy_img, 0.0, 1.0)
     
     # 6. JPEG / compression artifacts
     jpeg_quality = random.randint(jpeg_quality_min, jpeg_quality_max)
@@ -274,6 +271,52 @@ def generate_split(num_samples, split_name, output_dir, scale, cfg):
         cv2.imwrite(os.path.join(output_dir, "hr", hr_filename), np.uint8(hr * 255))
         cv2.imwrite(os.path.join(output_dir, "lr", lr_filename), np.uint8(lr * 255))
 
+def add_real_images_to_split(output_dir, scale, cfg, max_real_samples=200):
+    """Adds paired HR/LR data from real Carinthia SEM images to close the domain gap."""
+    import glob as glob_mod
+    
+    carinthia_dir = "data/raw/carinthia/data/images"
+    if not os.path.exists(carinthia_dir):
+        print(f"  Carinthia dataset not found at {carinthia_dir}, skipping real images.")
+        return 0
+    
+    real_files = sorted(glob_mod.glob(os.path.join(carinthia_dir, "*.jpg")))
+    if not real_files:
+        print("  No Carinthia images found, skipping.")
+        return 0
+    
+    # Sample a subset for this split
+    selected = random.sample(real_files, min(max_real_samples, len(real_files)))
+    img_size = cfg.get("dataset", {}).get("image_size", 256)
+    degrade_cfg = cfg.get("degradation", {})
+    count = 0
+    
+    for idx, fpath in enumerate(selected):
+        img = cv2.imread(fpath, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            continue
+        
+        h, w = img.shape
+        # Center-crop or resize to standard HR size
+        if h < img_size or w < img_size:
+            hr_img = cv2.resize(img, (img_size, img_size), interpolation=cv2.INTER_CUBIC)
+        else:
+            ch, cw = h // 2, w // 2
+            half = img_size // 2
+            hr_img = img[ch - half:ch + half, cw - half:cw + half]
+        
+        hr_float = np.float32(hr_img) / 255.0
+        lr_float = apply_sem_degradation(hr_float, scale=scale, cfg=degrade_cfg)
+        
+        hr_filename = f"real_{idx:04d}_hr.png"
+        lr_filename = f"real_{idx:04d}_lr.png"
+        
+        cv2.imwrite(os.path.join(output_dir, "hr", hr_filename), np.uint8(hr_float * 255))
+        cv2.imwrite(os.path.join(output_dir, "lr", lr_filename), np.uint8(lr_float * 255))
+        count += 1
+    
+    return count
+
 def main():
     parser = argparse.ArgumentParser(description="Procedural Semiconductor Image & Degradation Dataset Generator")
     parser.add_argument("--config", type=str, default="configs/default.yaml", help="Path to config file")
@@ -299,8 +342,7 @@ def main():
     print(f"Val samples: {num_val} in {val_dir}")
     print(f"Test samples: {num_test} in {test_dir}")
     
-    # Generate splits
-    # Set seed differently for each split to ensure variance, but keep it reproducible
+    # Generate synthetic splits
     set_seed(cfg.get("seed", 42) + 1)
     generate_split(num_train, "train", train_dir, scale, cfg)
     
@@ -309,6 +351,16 @@ def main():
     
     set_seed(cfg.get("seed", 42) + 3)
     generate_split(num_test, "test", test_dir, scale, cfg)
+    
+    # Add real Carinthia images to training and validation splits
+    print("Adding real Carinthia SEM images to training data...")
+    set_seed(cfg.get("seed", 42) + 10)
+    n_train_real = add_real_images_to_split(train_dir, scale, cfg, max_real_samples=300)
+    print(f"  Added {n_train_real} real images to training set")
+    
+    set_seed(cfg.get("seed", 42) + 11)
+    n_val_real = add_real_images_to_split(val_dir, scale, cfg, max_real_samples=50)
+    print(f"  Added {n_val_real} real images to validation set")
     
     print("Dataset generation complete!")
 

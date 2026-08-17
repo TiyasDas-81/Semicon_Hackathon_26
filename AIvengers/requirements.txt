@@ -1,0 +1,3 @@
+# Offline Inference Dependencies for KLA Track 2 SEM Restoration Submission
+numpy>=1.21.0
+torch>=2.0.0

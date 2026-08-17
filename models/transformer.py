@@ -128,9 +128,10 @@ class SwinBlockLight(nn.Module):
 
 class SwinIRLight(nn.Module):
     """Lightweight SwinIR-inspired image restoration network for resource-constrained training."""
-    def __init__(self, scale=4, embed_dim=48, depths=[4, 4], num_heads=[4, 4], window_size=8, mlp_ratio=2.0, in_channels=1, out_channels=1):
+    def __init__(self, scale=4, embed_dim=48, depths=[4, 4], num_heads=[4, 4], window_size=8, mlp_ratio=2.0, in_channels=1, out_channels=1, global_residual=False):
         super(SwinIRLight, self).__init__()
         self.scale = scale
+        self.global_residual = global_residual
         
         # 1. Shallow Feature Extraction
         self.shallow_conv = nn.Conv2d(in_channels, embed_dim, kernel_size=3, padding=1)
@@ -156,6 +157,10 @@ class SwinIRLight(nn.Module):
         )
         
     def forward(self, x):
+        # Global residual: bicubic-upscale input as the low-frequency base
+        if self.global_residual:
+            bicubic = F.interpolate(x, scale_factor=self.scale, mode='bicubic', align_corners=False)
+
         # Shallow features
         feat = self.shallow_conv(x)
         
@@ -169,4 +174,11 @@ class SwinIRLight(nn.Module):
         
         # Reconstruct output
         out = self.upsample(feat)
+
+        # Add bicubic base: model only learns the high-frequency residual
+        if self.global_residual:
+            out = out + bicubic
+
+        # Clamp output to valid [0,1] range — use clamp not sigmoid to preserve full contrast
+        out = torch.clamp(out, 0.0, 1.0)
         return out

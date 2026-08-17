@@ -37,7 +37,7 @@ def main():
         hr_np = obs.ground_truth
         
         # Run restoration
-        restored, _, _ = restorer.restore_image(lr_np, patch_size=None)
+        restored, _, _, _ = restorer.restore_image(lr_np, patch_size=None)
         
         # 1. AI Modification (HR resolution): |F(Y) - Bicubic(Y)|
         hr_h, hr_w = restored.shape
