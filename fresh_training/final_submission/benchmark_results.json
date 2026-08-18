@@ -1,0 +1,7 @@
+{
+  "device_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "avg_latency_ms": 11.36,
+  "throughput_fps": 88.1,
+  "peak_vram_mb": 111.6,
+  "parameter_count": 776705
+}

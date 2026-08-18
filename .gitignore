@@ -1,37 +1,19 @@
-# Byte-compiled / optimized / DLL files
+# Python & Environment
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual environments
-.venv/
+*.so
+.Python
+env/
 venv/
 ENV/
 
-# Datasets (large files generated programmatically)
-data/
-
-# Checkpoints
-checkpoints/
-
-# Log files and CSV trackers
-logs/
-experiments/*.csv
-experiments/*.png
-
-# IDE and system files
-.idea/
+# Jupyter & IDE
+.ipynb_checkpoints
 .vscode/
-.DS_Store
-Thumbs.db
+.idea/
 
-# Sensitive files
-.env
-.env.*
-kaggle.json
-
-# Datasets (downloaded separately)
-datasets/
-
-# Antigravity / Gemini
-.agents/
+# Scratch & Temporary Logs
+scratch/
+*.log
+.system_generated/

@@ -1,155 +1,88 @@
-# AI-Based Restoration of Degraded Semiconductor Images (KLA Track 2)
-
-This repository contains the end-to-end implementation for our **Semicon India Hackathon Project — Track 2: AI-Based Restoration of Degraded Images**. 
-
-Our solution restores degraded, low-resolution, and noisy semiconductor (CD-SEM) wafer images to full spatial resolution using deep learning. It recovers critical gate patterns, contacts, and defects while using physical cycle-consistency mapping to identify potential hallucination regions for human inspection.
+# KLA SemiCon AI Hackathon 2026 — Track 2 / PS01 Official Submission
+## AI-Based Restoration of Degraded Images for Semiconductor Inspection
+### Team AIvengers — Vellore Institute of Technology, Vellore
 
 ---
 
-## 1. Problem and Architecture
+### Executive Summary
+This repository contains the complete, production-grade submission package for **Track 2 (PS01)** of the **KLA SemiCon India Hackathon 2026**.
 
-### The Problem
-During semiconductor manufacturing, Critical Dimension Scanning Electron Microscope (CD-SEM) systems scan wafers to verify line widths and inspect defects. To prevent wafer charging or damage, low-dose scans are used, introducing heavy Poisson shot noise and blur. Standard mathematical upscalers (Bicubic) cannot recover lost spatial details or sharpen defect boundaries.
-
-### The Solution
-We implement a deep-learning-based single-image super-resolution (SISR) pipeline optimized to run on consumer-grade hardware (4GB VRAM GPU) using:
-- A compound **Edge-Preserving Metrology Loss** to encourage structural fidelity.
-- **Overlap-Stitching Inference** to handle arbitrary high-resolution scans.
-- **Cycle-Consistency Confidence Telemetry** to flag low-confidence zones for human inspection.
-
-### System Architecture Diagram
-```
-            Semiconductor Image
-                     |
-                     v
-            Image Preprocessing
-                     |
-                     v
-           Degradation Analysis
-                     |
-                     v
-          AI Restoration Model
-          /                 \
-         /                   \
-  CNN Baseline          Transformer
-         \                   /
-          \                 /
-           ---- Comparison
-                   |
-                   v
-           Quality Analysis
-             /     |      \
-            /      |       \
-         PSNR     SSIM    Edge
-            \      |       /
-             \     |      /
-              Final Restored
-                 Image
-```
+Our winning model—**EDSR2x + L1 Loss** (776,705 parameters, ~0.78M)—restores low-dose degraded semiconductor inspection images (128x128 single-channel float32 .npy files) into high-resolution restored images (256x256 float32 .npy files) jointly removing **Speckle Noise**, **Gaussian Noise**, and performing **2x Spatial Super-Resolution**.
 
 ---
 
-## 2. Repository Structure
+### Quick Start: AS-IS Evaluation Command
+To run inference on any directory of degraded `.npy` images using our trained model:
 
-```
-project/
-├── configs/
-│   └── default.yaml          # Dataset and training hyperparameters
-├── datasets/
-│   └── semicon_dataset.py    # Aligned patch loader and augmentations
-├── losses/
-│   └── restoration_losses.py # L1 + SSIM + Sobel Edge metrology losses
-├── models/
-│   ├── baseline.py           # Bicubic interpolation module
-│   ├── cnn.py                # EDSR-Light CNN Baseline
-│   └── transformer.py        # SwinIR-Light Transformer Model (W-MSA + DW-FFN)
-├── training/
-│   └── trainer.py            # PyTorch AMP-accelerated training pipeline
-├── evaluation/
-│   └── evaluator.py          # Metric benchmarking and comparative visual generator
-├── inference/
-│   └── restorer.py           # Overlap patch inference & cycle-consistency maps
-├── backend/
-│   ├── app.py                # FastAPI web server
-│   └── index.html            # Dark-mode industrial inspection console
-├── scripts/
-│   ├── generate_dataset.py   # Procedural wafer pattern & defect synthesizer
-│   └── run_pipeline.py       # Master orchestration script
-├── experiments/              # Telemetry CSVs and visualization output
-├── checkpoints/              # Saved model checkpoints (CNN & Transformer)
-├── PROJECT_PLAN.md           # Engineering design and roadmap
-├── FAILURE_ANALYSIS.md       # Limitations and risk mitigation analysis
-└── requirements.txt          # Python dependencies list
-```
-
----
-
-## 3. Getting Started
-
-### Installation
-Ensure Python 3.11+ is installed, then run:
 ```bash
-# Clone the repository
-git clone https://github.com/TiyasDas-81/Semicon_Hackathon_26.git
-cd Semicon_Hackathon_26
-
-# Install PyTorch with CUDA 12.1 and other requirements
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip install -r requirements.txt
+python evaluation.py --input <path_to_test_images_directory> --output <path_to_output_directory>
 ```
 
-### Reproducing the Complete Pipeline
-You can run the entire workflow (dataset generation -> baseline training -> transformer training -> metrics evaluation) with a single command:
+#### Example Execution on Official Test Set:
 ```bash
-python scripts/run_pipeline.py
+python evaluation.py --input Test_NoisyLR/NoisyLR --output scratch/restored_outputs/
 ```
-*Note: The master configuration is located in `configs/default.yaml`.*
 
-To execute individual components step-by-step:
-```bash
-# 1. Synthesize Semiconductor Images and Defects
-python scripts/generate_dataset.py
+- **Input Format**: Directory containing $128 \times 128$ float32 `.npy` files.
+- **Output Format**: Directory populated with restored $256 \times 256$ float32 `.npy` files bounded strictly in $[0.0, 1.0]$.
+- **Execution Time**: $\sim 2.95\text{ ms / image}$ on NVIDIA RTX 3050 GPU ($88.1\text{ FPS}$ batch throughput).
 
-# 2. Train the CNN Baseline Model (EDSR-Light)
-python training/trainer.py --model cnn
+---
 
-# 3. Train the SwinIR-Light Transformer Model
-python training/trainer.py --model transformer
+### Team AIvengers (Vellore Institute of Technology, Vellore)
+1. **Tiyas Das** — Team Leader & ML/AI Lead (*Architecture Design & Loss Optimization*)
+2. **Soumen Mondal** — Model Development & Training Engineer (*EDSR2x Model Training & Pipeline*)
+3. **Partha Protim Mondal** — Data Analysis & Evaluation Engineer (*Degradation Forensics & Metrics Audit*)
+4. **Aryan Raj** — Deployment, Integration & Presentation Lead (*Inference Pipeline & Deliverables Packaging*)
 
-# 4. Benchmarks and Visual Plots Generation
-python evaluation/evaluator.py
+---
+
+### Measured Official Validation & Held-Out Test Benchmarks
+
+| Evaluation Split | Method | PSNR (dB) | SSIM | MAE | Edge Preservation | Win Rate vs Bicubic |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Official Validation (320 samples)** | Bicubic 2× Baseline | `22.59 dB` | `0.5166` | `0.0597` | `0.4727` | — |
+| **Official Validation (320 samples)** | **EDSR2x (Production Winner)** | **`27.42 dB`** | **`0.7357`** | **`0.0349`** | **`0.6639`** | `320/320` (**100.0%**) |
+| **Validation Net Improvement** | **EDSR2x vs Bicubic** | **`+4.83 dB`** | **`+0.2191`** | **`-0.0248`** | **`+0.1912`** | `284/320` (**88.8%** SSIM) |
+| **Held-Out Internal Test (320 samples)** | Bicubic 2× Baseline | `22.98 dB` | `0.5243` | `0.0572` | `0.4781` | — |
+| **Held-Out Internal Test (320 samples)** | **EDSR2x (Production Winner)** | **`27.93 dB`** | **`0.7408`** | **`0.0310`** | **`0.6684`** | `320/320` (**100.0%**) |
+| **Held-Out Test Net Improvement** | **EDSR2x vs Bicubic** | **`+4.95 dB`** | **`+0.2165`** | **`-0.0262`** | **`+0.1903`** | `285/320` (**89.1%** SSIM) |
+
+*Note: Official Hackathon Test Set (400 samples in `Test_NoisyLR/`) restored outputs are generated under `fresh_training/final_submission/test_outputs/`. Official benchmark scores will be evaluated by contest organizers.*
+
+---
+
+### Hardware Audit & Model Efficiency
+- **Parameters**: `776,705` ($\sim 0.78\text{M}$ parameters)
+- **Model Size**: `9.37 MB` PyTorch checkpoint (`fresh_training/final_submission/model/best_kla_2x.pth`)
+- **GPU Steady-State Latency**: `2.95 ms / image` on NVIDIA GeForce RTX 3050 Laptop GPU
+- **Peak VRAM Usage**: `111.6 MB` ($<3\%$ of 4GB VRAM limit)
+
+---
+
+### Key Deliverables & Repository Structure
+
+```text
+Semicon_Hackathon_26/
+├── AIvengers_KLA_PS01.pptx        ← Official 9-Slide Presentation
+├── AIvengers_KLA_PS01.pdf         ← Official PDF Presentation
+├── evaluation.py                  ← Standalone AS-IS Evaluation Script
+├── requirements.txt               ← Complete Python dependencies
+│
+├── fresh_training/final_submission/
+│   ├── model/best_kla_2x.pth      ← Verified production checkpoint (SHA-256 matched)
+│   ├── test_outputs/              ← 400 Restored official test sample outputs (.npy)
+│   ├── training/train_edsr2x.py   ← Reproduction training script
+│   ├── demo_assets/               ← 10 High-Definition presentation slides (1080p)
+│   ├── EDSR2x_demo.mp4            ← Official 83s 1080p demo presentation video
+│   ├── validation_results.json    ← Full metric breakout
+│   └── final_report.md            ← Comprehensive final report
+└── README.md                      ← Root repository documentation
 ```
 
 ---
 
-## 4. Benchmark Evaluation Results
-
-The models were evaluated across 30 unseen test scenarios. Quantitative averages are reported below:
-
-| Method | PSNR (dB) | SSIM | Edge Score | Inference Time (ms) |
-| :--- | :---: | :---: | :---: | :---: |
-| **Bicubic (Baseline)** | 18.79 | 0.4000 | 0.8484 | **8.07 ms** |
-| **EDSR-Light (CNN)** | 19.69 | **0.4793** | **0.8817** | 13.68 ms |
-| **SwinIR-Light (Transformer)** | **19.71** | 0.4430 | 0.8751 | 17.08 ms |
-
-### Visual Comparisons & Telescopic Details
-For each sample, the evaluation script saves:
-1. Side-by-side grids in `experiments/comparison_sample_{idx}.png` showing input, output, confidence, and deviation maps.
-2. Pixel-level zooms in `experiments/zoomed_comparison_{idx}.png` highlighting line-edge sharpness.
-
----
-
-## 5. Launching the Web Workstation Ingestion
-
-Start the FastAPI backend server:
-```bash
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Once the server is running, open your web browser and navigate to:
-**[http://127.0.0.1:8000](http://127.0.0.1:8000)**
-
-### Workstation Features:
-- **Preset Ingestion**: Select Gratings, Vias, or Logic layers with defects directly from the sidebar.
-- **Dual Colormap Inspection**: Toggle between the Restored image, the **Confidence Map** (Jet scale representing consistency), and the **Deviation Map** (Hot scale indicating AI sharpened details).
-- **Synchronized Cursor Magnifier**: Hover over any pixel coordinate on the viewports to see a real-time 4x zoom.
+### Codebase Links & Presentation Assets
+- **Public GitHub Repository**: [https://github.com/TiyasDas-81/Semicon_Hackathon_26.git](https://github.com/TiyasDas-81/Semicon_Hackathon_26.git)
+- **Official Demo Video**: [`fresh_training/final_submission/EDSR2x_demo.mp4`](file:///c:/Users/Asus/Desktop/Semicon/Semicon_Hackathon_26/fresh_training/final_submission/EDSR2x_demo.mp4)
+- **Demo Script & Storyboard**: [`fresh_training/final_submission/demo_script.md`](file:///c:/Users/Asus/Desktop/Semicon/Semicon_Hackathon_26/fresh_training/final_submission/demo_script.md)

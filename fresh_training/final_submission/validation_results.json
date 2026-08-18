@@ -1,0 +1,25 @@
+{
+  "model_name": "EDSR2x",
+  "val_summary": {
+    "psnr": 27.420484986901283,
+    "ssim": 0.7356630103808384,
+    "mae": 0.03491353649369557,
+    "edge": 0.6639398040899311,
+    "bicubic_psnr": 22.59250620007515,
+    "bicubic_ssim": 0.5165891366624292,
+    "psnr_win_rate": "320/320 (100.0%)",
+    "ssim_win_rate": "284/320 (88.8%)"
+  },
+  "test_summary": {
+    "psnr": 27.9267334908247,
+    "ssim": 0.7408207865914346,
+    "mae": 0.03099708003865089,
+    "edge": 0.6684475820069333,
+    "bicubic_psnr": 22.97700870037079,
+    "bicubic_ssim": 0.5242756225593164,
+    "psnr_win_rate": "320/320 (100.0%)",
+    "ssim_win_rate": "285/320 (89.1%)"
+  },
+  "num_parameters": 776705,
+  "sha256_hash": "36150d9f9cc7eeea473520b57daad28e0bfea694d993a7d3fd3e2a0d59e10efe"
+}
