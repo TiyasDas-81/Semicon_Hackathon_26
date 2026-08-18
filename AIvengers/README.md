@@ -1,64 +1,52 @@
-# KLA Track 2 — AI-Based SEM Image Restoration (Submission Package)
+# AIvengers Official Submission Package
+## Project: AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA
+### SEMICON India Hackathon 2026 — Track 2 / PS01
 
-This package contains the self-contained offline AI restoration pipeline for Critical Dimension Scanning Electron Microscopy (CD-SEM) images.
+---
 
-## Architecture & Model
-- **Model**: EDSR-Light CNN with Global Residual Learning
-- **Scale Factor**: 4× Super-Resolution (e.g., $64 \times 64 \rightarrow 256 \times 256$)
-- **Parameters**: 360,736 parameters (optimized for sub-second inference)
-- **Offline Operation**: 100% self-contained. Requires zero internet connectivity, zero external API keys, and zero runtime downloads.
+### Team Information
+- **Team Name**: `AIvengers`
+- **Institution**: `Vellore Institute of Technology, Vellore`
+- **Team Members**:
+  1. `Tiyas Das` — Team Leader & ML/AI Lead
+  2. `Soumen Mondal` — Model Development & Training Engineer
+  3. `Partha Protim Mondal` — Data Analysis & Evaluation Engineer
+  4. `Aryan Raj` — Deployment, Integration & Presentation Lead
 
-## Requirements
-- Python 3.8+
-- PyTorch 2.0+ (CUDA GPU acceleration recommended, CPU supported as fallback)
-- NumPy 1.21+
+---
 
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
-
-## Input Format Assumptions
-
-The offline evaluator entry point `run.py` accepts input directories containing NumPy `.npy` arrays with the following properties:
-- **File Type**: `.npy` binary arrays
-- **Shape**: Grayscale 2D `(H, W)` or 3D `(H, W, 1)`
-- **Data Types**: `float32`, `float64`, `uint8`, or `uint16`
-- **Dynamic Range**: Scaled automatically to $[0.0, 1.0]$ standard floating-point representation
-
-## Execution Command
-
-Run the inference script by providing input and output directories:
+### Official Execution Command
+To execute restoration on any directory of degraded `.npy` images using our trained EDSR2x model:
 
 ```bash
 python run.py <input-dir> <output-dir>
 ```
 
-### Example
-
+#### Example Usage:
 ```bash
-python run.py ./sample_inputs ./restored_outputs
+python run.py Test_NoisyLR/NoisyLR scratch/restored_outputs/
 ```
 
-## Output Specification
+---
 
-For every input `<filename>.npy` in `<input-dir>`, `run.py` generates exactly one corresponding `<filename>.npy` in `<output-dir>`:
-- **Filename**: Identical to input filename
-- **Spatial Resolution**: $4\times$ spatial upscale ($(H \times 4, W \times 4)$ or $(H \times 4, W \times 4, 1)$ matching input dimensions)
-- **Data Type**: `float32`
-- **Dynamic Range**: Strictly bounded in $[0.0, 1.0]$
-- **Numerical Safety**: Cleaned of any `NaN` or `Inf` values via `np.nan_to_num`
+### Model Architecture & Specs
+- **Model Name**: `EDSR2x + L1 Loss`
+- **Parameters**: `776,705` (~0.78M parameters)
+- **Structure**: 8 Residual Blocks, 64 Feature Channels, 2x PixelShuffle Upsampler, Global Bicubic Residual Skip Connection
+- **Weights File**: `models/best_kla_2x.pth`
 
-## Offline Guarantee
+---
 
-This submission is guaranteed to operate completely offline:
-- No `requests`, `urllib`, or web requests during inference
-- No Hugging Face or PyTorch Hub automatic downloads
-- No Kaggle dataset fetches
-- No interactive prompts or manual configuration required
+### Input & Output Format Specifications
+- **Input Format**: Directory containing $128 \times 128$ single-channel float32 `.npy` degraded images.
+- **Output Format**: Directory populated with restored $256 \times 256$ single-channel float32 `.npy` images.
+- **Numerical Bounds**: Strictly bounded in $[0.0, 1.0]$ with $0$ NaNs and $0$ Infs.
+- **GPU Throughput**: $\sim 2.95\text{ ms / image}$ ($88.1\text{ FPS}$) on NVIDIA GeForce RTX 3050 Laptop GPU ($111.6\text{ MB}$ peak VRAM).
 
-## Troubleshooting
+---
 
-- **CUDA Out of Memory**: The model automatically performs single-pass inference for images up to $512 \times 512$. For larger images, it uses an overlapping patch tiling mechanism to fit within GPU VRAM.
-- **CPU Mode**: If no NVIDIA GPU is detected, PyTorch will automatically fall back to CPU execution without error.
+### Performance Summary
+- **Official Validation PSNR**: `27.42 dB` (+$4.83$ dB over Bicubic)
+- **Official Validation SSIM**: `0.7357` (+$0.2191$ over Bicubic)
+- **Held-Out Internal Test PSNR**: `27.93 dB` (+$4.95$ dB over Bicubic)
+- **Held-Out Internal Test SSIM**: `0.7408` (+$0.2165$ over Bicubic)
