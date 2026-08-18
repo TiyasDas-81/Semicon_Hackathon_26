@@ -425,8 +425,9 @@ def main():
     print("Rendering Slide 10: Final Summary & Conclusion...", flush=True)
     fig = setup_dark_figure()
 
-    fig.text(0.5, 0.78, "From Degraded SEM Imagery  ──▶  High-Resolution Restoration", fontsize=24, fontweight='bold', color='#FFFFFF', ha='center')
-    fig.text(0.5, 0.68, "EDSR2x + L1 Reconstruction Model", fontsize=20, fontweight='bold', color='#00F0FF', ha='center')
+    fig.text(0.5, 0.85, "AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA", fontsize=22, fontweight='bold', color='#00F0FF', ha='center')
+    fig.text(0.5, 0.74, "From Degraded SEM Imagery  ──▶  High-Resolution Restoration", fontsize=22, fontweight='bold', color='#FFFFFF', ha='center')
+    fig.text(0.5, 0.65, "EDSR2x + L1 Reconstruction Model", fontsize=18, fontweight='bold', color='#A0AEC0', ha='center')
 
     summary_box = "Validation PSNR : 27.42 dB  (+4.83 dB vs Bicubic)\nValidation SSIM : 0.7357     (+0.2191 vs Bicubic)\nModel Parameters: 776,705    (~0.78M Params)\nGPU Speed       : 2.95 ms    (88.1 FPS)"
     fig.text(0.5, 0.45, summary_box, fontsize=16, fontfamily='monospace', color='#00FF66', ha='center', va='center',
