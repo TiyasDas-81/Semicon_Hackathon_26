@@ -2,7 +2,7 @@
 ## Team AIvengers Submission (PS01)
 
 ### 1. Project Title & Overview
-**AI-Based Restoration of Degraded Images for Semiconductor Inspection**
+**AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA**
 This repository contains the complete production-grade submission package for Track 2 / PS01 of the KLA SemiCon India Hackathon 2026. The solution restores low-dose, degraded semiconductor inspection images (128x128 single-channel grayscale) to clean 256x256 high-resolution images.
 
 ### 2. Team Information

@@ -1,5 +1,5 @@
 # Final KLA EDSR2x Submission Report
-## KLA SemiCon AI Hackathon 2026 — Track 2 Official Final Summary
+## AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA
 
 ## 1. Final Model
 The winning production model selected for Track 2 image restoration is **EDSR2x + L1 Loss** (`fresh_training/checkpoints/best_kla_2x.pth`).

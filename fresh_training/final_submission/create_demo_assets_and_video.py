@@ -126,7 +126,7 @@ def main():
     # -------------------------------------------------------------------------
     print("Rendering Slide 1: Introduction & Title...", flush=True)
     fig = setup_dark_figure()
-    fig.text(0.5, 0.65, "AI-Based Restoration of Degraded Semiconductor Images", fontsize=28, fontweight='bold', color='#FFFFFF', ha='center', va='center')
+    fig.text(0.5, 0.65, "AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA", fontsize=26, fontweight='bold', color='#FFFFFF', ha='center', va='center')
     fig.text(0.5, 0.55, "EDSR2x — Lightweight Deep Learning Restoration Pipeline", fontsize=18, color='#00F0FF', ha='center', va='center')
     
     # 3-step pipeline graphic
@@ -524,7 +524,7 @@ def main():
 
 | Timestamp | Section | Visual Asset Used | Screen Text & Visual Content | Narration / Voiceover Script |
 | :--- | :--- | :--- | :--- | :--- |
-| **00:00 – 00:07** | **Section 1: Title** | `demo_01_problem.png` | "AI-Based Restoration of Degraded Semiconductor Images" | *"Semiconductor inspection images can suffer from severe electron shot noise and limited spatial resolution. Our solution uses EDSR2x to restore degraded 128 by 128 images into 256 by 256 high-resolution outputs."* |
+| **00:00 – 00:07** | **Section 1: Title** | `demo_01_problem.png` | "AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA" | *"Semiconductor inspection images can suffer from severe electron shot noise and limited spatial resolution. Our solution uses EDSR2x to restore degraded 128 by 128 images into 256 by 256 high-resolution outputs."* |
 | **00:07 – 00:16** | **Section 2: Problem** | `demo_02_architecture.png` | "The Challenge: Low-Dose SEM Degradation" (Micro-structure zoom callout) | *"Low-dose Scanning Electron Microscopy exhibits heavy Poisson-Gaussian shot noise and high-frequency spatial attenuation, severely degrading feature visibility."* |
 | **00:16 – 00:25** | **Section 3: Solution** | `demo_03_comparison_01.png` | "Our Solution: EDSR2x Neural Architecture" (~0.78M params) | *"We engineered EDSR2x—a lightweight single-stage residual network with 8 residual blocks and global bicubic residual skip connections, trained on pure L1 reconstruction loss."* |
 | **00:25 – 00:40** | **Section 4: Visuals** | `demo_04_comparison_02.png` | Side-by-side wafer structure restoration (Bicubic vs EDSR2x) | *"Across standard wafer structures, EDSR2x cleanly removes Poisson-Gaussian noise while preserving edge boundaries, achieving a 4.83 dB PSNR gain over bicubic interpolation."* |

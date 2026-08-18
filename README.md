@@ -1,5 +1,5 @@
 # KLA SemiCon AI Hackathon 2026 — Track 2 / PS01 Official Submission
-## AI-Based Restoration of Degraded Images for Semiconductor Inspection
+## AI-Based Restoration of Degraded Images for Semiconductor Inspection_KLA
 ### Team AIvengers — Vellore Institute of Technology, Vellore
 
 ---
